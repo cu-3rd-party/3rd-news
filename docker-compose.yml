@@ -1,0 +1,122 @@
+name: 3rd-news
+
+# Every service builds from the repository root so it can install the shared
+# contracts package. Services are independent containers: run only `main` and
+# `postgres` if that is all you need, or run a classifier from another repo
+# entirely and just register its URL in the admin.
+
+x-main-env: &main-env
+  NEWS_DATABASE_URL: postgresql+asyncpg://news:news@postgres:5432/news
+  NEWS_REDIS_URL: redis://redis:6379/0
+  NEWS_MEDIA_ROOT: /data/media
+  NEWS_SECRET_KEY: ${NEWS_SECRET_KEY:-dev-secret-change-me}
+  NEWS_PUBLIC_BASE_URL: ${NEWS_PUBLIC_BASE_URL:-http://main:8000}
+  NEWS_ENVIRONMENT: ${NEWS_ENVIRONMENT:-development}
+  NEWS_BOOTSTRAP_ADMIN_EMAIL: ${NEWS_BOOTSTRAP_ADMIN_EMAIL:-admin@example.edu}
+  NEWS_BOOTSTRAP_ADMIN_PASSWORD: ${NEWS_BOOTSTRAP_ADMIN_PASSWORD:-admin}
+  NEWS_CORS_ORIGINS: '["http://localhost:5173"]'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: news
+      POSTGRES_PASSWORD: news
+      POSTGRES_DB: news
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U news"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  main:
+    build:
+      context: .
+      dockerfile: services/main/Dockerfile
+    command: ["api"]
+    environment: *main-env
+    volumes:
+      - media:/data/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  worker:
+    build:
+      context: .
+      dockerfile: services/main/Dockerfile
+    command: ["worker"]
+    environment: *main-env
+    volumes:
+      - media:/data/media
+    depends_on:
+      main:
+        condition: service_started
+
+  classifier-regex:
+    build:
+      context: .
+      dockerfile: services/classifier-regex/Dockerfile
+    environment:
+      CLASSIFIER_SECRET: ${REGEX_CLASSIFIER_SECRET:-dev-regex-secret}
+    ports:
+      - "8101:8000"
+
+  classifier-ai:
+    build:
+      context: .
+      dockerfile: services/classifier-ai/Dockerfile
+    environment:
+      CLASSIFIER_SECRET: ${AI_CLASSIFIER_SECRET:-dev-ai-secret}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-anthropic/claude-haiku-4.5}
+    ports:
+      - "8102:8000"
+
+  # Example parser. Disabled until FEEDS is set; copy the block for your own.
+  parser-rss:
+    build:
+      context: .
+      dockerfile: parsers/rss/Dockerfile
+    environment:
+      NEWS_URL: http://main:8000
+      NEWS_API_KEY: ${RSS_PARSER_API_KEY:-}
+      FEEDS: ${RSS_FEEDS:-}
+      POLL_INTERVAL_S: ${RSS_POLL_INTERVAL_S:-600}
+    depends_on:
+      main:
+        condition: service_started
+    profiles: ["parsers"]
+
+  admin-ui:
+    build:
+      context: ./admin-ui
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    ports:
+      - "5173:5173"
+    profiles: ["ui"]
+
+volumes:
+  pgdata:
+  redisdata:
+  media:

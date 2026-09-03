@@ -1,0 +1,7 @@
+# Windows-машины иначе кладут в рабочую копию CRLF, и entrypoint.sh внутри
+# Linux-контейнера падает с «bad interpreter».
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
