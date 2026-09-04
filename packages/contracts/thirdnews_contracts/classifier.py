@@ -66,11 +66,32 @@ class ClassifyOptions(BaseModel):
     callback_url: str | None = None
 
 
+class LabeledExample(BaseModel):
+    """Новость, размеченная человеком — образец правильной разметки.
+
+    Это память системы: редактор поправил метку в админке, и его решение
+    уезжает следующим классификаторам как пример. Чем дольше работает
+    сервис, тем лучше примеры.
+    """
+
+    title: str | None = None
+    body_md: str
+    #: `{"facet-slug": ["value-slug", ...]}` — так разметил человек.
+    labels: dict[str, list[str]] = Field(default_factory=dict)
+
+
 class ClassifyRequest(BaseModel):
     request_id: str
     news: ClassifyNews
     taxonomy: Taxonomy
     options: ClassifyOptions = Field(default_factory=ClassifyOptions)
+    #: Что нужно знать об организации, чтобы вообще понимать эти тексты:
+    #: расшифровки сокращений, названия потоков, кто такие кураторы. Пишется
+    #: один раз в админке и приходит в каждом запросе.
+    context: str | None = None
+    #: Примеры ручной разметки. Необязательны: классификатор вправе их
+    #: игнорировать, но с ними он попадает в принятые у вас соглашения.
+    examples: list[LabeledExample] = Field(default_factory=list)
 
 
 class ProposedLabel(BaseModel):

@@ -5,12 +5,14 @@ import { TaxonomyPage } from "./pages/Taxonomy";
 import { SourcesPage } from "./pages/Sources";
 import { KeysPage } from "./pages/Keys";
 import { ClassifiersPage } from "./pages/Classifiers";
+import { KnowledgePage } from "./pages/Knowledge";
 
-type Tab = "review" | "taxonomy" | "sources" | "keys" | "classifiers";
+type Tab = "review" | "taxonomy" | "knowledge" | "sources" | "keys" | "classifiers";
 
 const TABS: { id: Tab; label: string; adminOnly?: boolean }[] = [
   { id: "review", label: "Новости" },
   { id: "taxonomy", label: "Классификация" },
+  { id: "knowledge", label: "База знаний" },
   { id: "sources", label: "Источники" },
   { id: "keys", label: "API-ключи", adminOnly: true },
   { id: "classifiers", label: "Классификаторы", adminOnly: true },
@@ -103,6 +105,7 @@ export function App() {
       <main>
         {tab === "review" && <ReviewPage />}
         {tab === "taxonomy" && <TaxonomyPage canEdit={isAdmin} />}
+        {tab === "knowledge" && <KnowledgePage canEdit={isAdmin} />}
         {tab === "sources" && <SourcesPage canEdit={isAdmin} />}
         {tab === "keys" && <KeysPage />}
         {tab === "classifiers" && <ClassifiersPage />}

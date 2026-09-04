@@ -9,10 +9,15 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, HTTPException, Request, UploadFile
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+# Именно starlette-овский, а не fastapi.UploadFile: `request.form()` отдаёт
+# базовый класс, и проверка против наследника из fastapi всегда ложна — файлы
+# при этом молча пропадают.
+from starlette.datastructures import UploadFile
 from thirdnews_contracts import IngestResult, NewsSubmission
 
 from ..auth import Principal

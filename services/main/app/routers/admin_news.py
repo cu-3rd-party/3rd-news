@@ -132,7 +132,10 @@ async def list_news(
         count_query = count_query.where(~News.id.in_(labelled))
 
     total = (await session.execute(count_query)).scalar_one()
-    query = query.order_by(News.received_at.desc()).limit(limit).offset(offset)
+    # По дате публикации, а не получения: после первого прогона парсера у всей
+    # ленты одинаковый received_at, и порядок был бы случайным.
+    ordering = func.coalesce(News.published_at, News.received_at).desc()
+    query = query.order_by(ordering, News.id.desc()).limit(limit).offset(offset)
     rows = (await session.execute(query)).unique().scalars().all()
     return {"items": [_detail(item) for item in rows], "total": total}
 

@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Превью ленты · 3rd-news</title>
+    <style>
+      :root {
+        --bg: #f6f7f9; --card: #fff; --line: #d8dce3; --text: #1c2128;
+        --muted: #6b7280; --accent: #2563eb; --danger: #b91c1c;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        font-size: 14px;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); }
+      header {
+        display: flex; align-items: center; gap: .8rem; padding: .6rem 1rem; flex-wrap: wrap;
+        background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 10;
+      }
+      main { padding: 1rem; display: grid; grid-template-columns: 19rem 1fr; gap: 1rem; align-items: start; }
+      @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+      .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: .8rem 1rem; }
+      button {
+        font: inherit; padding: .35rem .7rem; border: 1px solid var(--line);
+        border-radius: 6px; background: var(--card); cursor: pointer;
+      }
+      button:hover:not(:disabled) { border-color: var(--accent); }
+      button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+      button.link { border: none; background: none; color: var(--accent); padding: 0 .3rem; }
+      input, select { font: inherit; padding: .35rem .5rem; border: 1px solid var(--line); border-radius: 6px; background: var(--card); width: 100%; }
+      label.chip {
+        display: inline-flex; align-items: center; gap: .3rem; padding: .2rem .55rem;
+        border: 1px solid var(--line); border-radius: 999px; cursor: pointer; font-size: .9em; margin: 0 .2rem .3rem 0;
+      }
+      label.chip:has(input:checked) { background: var(--accent); color: #fff; border-color: var(--accent); }
+      label.chip input { width: auto; }
+      .facet { margin-bottom: .9rem; }
+      .facet h4 { margin: 0 0 .35rem; font-size: .9em; color: var(--muted); font-weight: 500; }
+      .field { margin-bottom: .7rem; }
+      .field label { display: block; font-size: .85em; color: var(--muted); margin-bottom: .2rem; }
+      .muted { color: var(--muted); }
+      .error { color: var(--danger); }
+
+      article.news { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 1rem 1.2rem; margin-bottom: 1rem; }
+      article.news h3 { margin: 0 0 .3rem; font-size: 1.05rem; }
+      .meta { color: var(--muted); font-size: .88em; margin-bottom: .6rem; display: flex; gap: .6rem; flex-wrap: wrap; }
+      .body { line-height: 1.5; overflow-wrap: anywhere; }
+      .body p { margin: .5em 0; }
+      .body blockquote { margin: .5em 0; padding-left: .8em; border-left: 3px solid var(--line); color: var(--muted); }
+      .body img { max-width: 100%; border-radius: 6px; }
+      .labels { margin-top: .7rem; display: flex; flex-wrap: wrap; gap: .3rem; }
+      .tag { padding: .15rem .5rem; border-radius: 999px; background: #eef2ff; color: #3730a3; font-size: .82em; }
+      .tag.manual { background: #dcfce7; color: #166534; }
+      .files { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .7rem; }
+      .files img { max-height: 15rem; border-radius: 6px; border: 1px solid var(--line); }
+      details.req { margin-top: .6rem; }
+      details.req pre { background: #f1f5f9; padding: .5rem; border-radius: 6px; overflow-x: auto; margin: .4rem 0 0; }
+      dialog { border: 1px solid var(--line); border-radius: 8px; padding: 1.2rem; max-width: 30rem; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong>Превью ленты</strong>
+      <span id="who" class="muted"></span>
+      <span style="margin-left:auto; display:flex; gap:.5rem; align-items:center">
+        <button id="keyBtn" class="link">API-ключ</button>
+        <button id="reload" class="primary">Обновить</button>
+      </span>
+    </header>
+
+    <main>
+      <aside class="card">
+        <div class="field">
+          <label for="q">Поиск по тексту</label>
+          <input id="q" type="search" placeholder="дедлайн, семинар…" />
+        </div>
+        <div id="facets"></div>
+        <div class="field">
+          <label for="source">Источник</label>
+          <select id="source"><option value="">любой</option></select>
+        </div>
+        <div class="field">
+          <label for="from">Опубликовано с</label>
+          <input id="from" type="date" />
+        </div>
+        <div class="field">
+          <label for="to">по</label>
+          <input id="to" type="date" />
+        </div>
+        <div class="field">
+          <label for="order">Порядок</label>
+          <select id="order">
+            <option value="desc">сначала свежие</option>
+            <option value="asc">сначала старые</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="limit">Сколько за раз</label>
+          <input id="limit" type="number" value="20" min="1" max="200" />
+        </div>
+        <button id="reset" class="link">Сбросить фильтры</button>
+      </aside>
+
+      <section>
+        <div id="status" class="muted" style="margin-bottom:.8rem"></div>
+        <details class="req card" style="margin-bottom:1rem">
+          <summary class="muted">Какой запрос уходит на сервер</summary>
+          <pre id="reqUrl"></pre>
+          <p class="muted" style="margin:0">
+            Ровно это и вызывает клиент: сайт, бот или расширение.
+          </p>
+        </details>
+        <div id="list"></div>
+        <div style="text-align:center; margin: 1rem 0 3rem">
+          <button id="more" hidden>Показать ещё</button>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="keyDialog">
+      <form method="dialog">
+        <p><strong>API-ключ для чтения</strong></p>
+        <p class="muted">
+          Лента показывается так, как её увидит клиент с этим ключом — включая
+          ограничения из <code>filter_preset</code>. Выпустите ключ с правом
+          <code>read</code> в админке, вкладка «API-ключи».
+        </p>
+        <input type="password" id="keyInput" placeholder="tnk_…" />
+        <p class="muted" style="font-size:.85em">
+          Оставьте пустым, чтобы смотреть под своей админской сессией — но
+          учтите, что редактору видны и неопубликованные новости, а клиенту нет.
+        </p>
+        <div style="display:flex; gap:.5rem; margin-top:.8rem">
+          <button value="save" class="primary">Сохранить</button>
+          <button value="cancel">Отмена</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const state = { taxonomy: [], cursor: null, seq: 0 };
+      const key = {
+        get: () => localStorage.getItem("preview_key") || "",
+        set: (v) => localStorage.setItem("preview_key", v),
+      };
+
+      async function api(path) {
+        const headers = {};
+        if (key.get()) headers["X-API-Key"] = key.get();
+        const response = await fetch(path, { headers, credentials: "include" });
+        if (!response.ok) {
+          let detail = response.statusText;
+          try { detail = (await response.json()).detail ?? detail; } catch {}
+          throw new Error(`${response.status}: ${typeof detail === "string" ? detail : JSON.stringify(detail)}`);
+        }
+        return response.json();
+      }
+
+      /* Крошечный markdown: посты из мессенджера, а не документы. */
+      function md(text) {
+        const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+        return esc(text)
+          .replace(/:[a-zA-Z][a-zA-Z0-9_+-]*:/g, "")            // кастомные эмодзи TiMe
+          .replace(/^#{1,6}\s*(.+)$/gm, "<strong>$1</strong>")
+          .replace(/^&gt;\s?(.+)$/gm, "<blockquote>$1</blockquote>")
+          .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>')
+          .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+          .replace(/(^|\s)\*([^*\n]+)\*/g, "$1<em>$2</em>")
+          .replace(/`([^`]+)`/g, "<code>$1</code>")
+          .replace(/\n{2,}/g, "</p><p>")
+          .replace(/\n/g, "<br>");
+      }
+
+      function buildFilters(taxonomy) {
+        $("facets").innerHTML = "";
+        for (const facet of taxonomy.facets) {
+          if (!facet.values.length) continue;
+          const box = document.createElement("div");
+          box.className = "facet";
+          const head = document.createElement("h4");
+          head.textContent = facet.title + (facet.type === "multi" ? " (несколько)" : "");
+          box.append(head);
+          for (const value of facet.values) {
+            const label = document.createElement("label");
+            label.className = "chip";
+            const input = document.createElement("input");
+            input.type = "checkbox";
+            input.dataset.facet = facet.slug;
+            input.value = value.slug;
+            input.onchange = () => load(true);
+            label.append(input, document.createTextNode(value.title));
+            box.append(label);
+          }
+          $("facets").append(box);
+        }
+      }
+
+      function query(reset) {
+        const params = new URLSearchParams();
+        const chosen = {};
+        for (const input of document.querySelectorAll("#facets input:checked")) {
+          (chosen[input.dataset.facet] ||= []).push(input.value);
+        }
+        for (const [facet, values] of Object.entries(chosen)) {
+          params.set(`facet.${facet}`, values.join(","));
+        }
+        if ($("q").value.trim()) params.set("q", $("q").value.trim());
+        if ($("source").value) params.set("source", $("source").value);
+        if ($("from").value) params.set("published_from", `${$("from").value}T00:00:00Z`);
+        if ($("to").value) params.set("published_to", `${$("to").value}T23:59:59Z`);
+        params.set("order", $("order").value);
+        params.set("limit", $("limit").value || "20");
+        params.set("with_total", "true");
+        if (!reset && state.cursor) params.set("cursor", state.cursor);
+        return `/api/v1/news?${params}`;
+      }
+
+      /* Публичной ручки со списком источников нет, поэтому собираем их из
+         самой выдачи — по мере того, как новости приходят. */
+      function rememberSource(item) {
+        if (!item.source_key) return;
+        const select = $("source");
+        if ([...select.options].some((o) => o.value === item.source_key)) return;
+        const option = document.createElement("option");
+        option.value = item.source_key;
+        option.textContent = item.source_text ?? item.source_key;
+        select.append(option);
+      }
+
+      function card(item) {
+        const el = document.createElement("article");
+        el.className = "news";
+
+        const when = new Date(item.published_at ?? item.received_at)
+          .toLocaleString("ru", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+        el.innerHTML = `
+          ${item.title ? `<h3>${item.title.replace(/</g, "&lt;")}</h3>` : ""}
+          <div class="meta">
+            <span>${when}</span>
+            <span>${item.source_text ?? item.source_key ?? ""}</span>
+            ${item.source_link ? `<a href="${item.source_link}" target="_blank" rel="noreferrer">оригинал</a>` : ""}
+          </div>
+          <div class="body"><p>${md(item.body_md)}</p></div>`;
+
+        // Вложения тоже за авторизацией, а <img> заголовков не шлёт —
+        // поэтому ключ уезжает параметром запроса.
+        const withKey = (url) =>
+          key.get() ? url + (url.includes("?") ? "&" : "?") + "api_key=" + encodeURIComponent(key.get()) : url;
+        const images = item.attachments.filter((a) => a.kind === "image" && a.url);
+        const others = item.attachments.filter((a) => a.kind !== "image" && a.url);
+        if (images.length || others.length) {
+          const files = document.createElement("div");
+          files.className = "files";
+          for (const a of images) {
+            const img = document.createElement("img");
+            img.src = withKey(a.url); img.alt = a.caption ?? a.filename ?? "";
+            img.loading = "lazy";
+            files.append(img);
+          }
+          for (const a of others) {
+            const link = document.createElement("a");
+            link.href = withKey(a.url); link.target = "_blank"; link.rel = "noreferrer";
+            link.textContent = `${a.kind}: ${a.filename ?? "файл"}`;
+            files.append(link);
+          }
+          el.append(files);
+        }
+
+        if (item.labels.length) {
+          const tags = document.createElement("div");
+          tags.className = "labels";
+          for (const l of item.labels) {
+            const tag = document.createElement("span");
+            tag.className = l.origin === "manual" ? "tag manual" : "tag";
+            tag.textContent = `${l.facet_title ?? l.facet}: ${l.value_title ?? l.value}`;
+            tag.title = `откуда: ${l.origin}${l.confidence != null ? `, уверенность ${l.confidence.toFixed(2)}` : ""}`;
+            tags.append(tag);
+          }
+          el.append(tags);
+        }
+        return el;
+      }
+
+      async function load(reset = true) {
+        // Быстрые клики по фильтрам порождают несколько запросов сразу, и
+        // ответы возвращаются не в том порядке, в каком уходили. Каждому
+        // запросу выдаём номер и показываем только последний — иначе список
+        // склеивается из двух разных выдач, а счётчик берётся от чужой.
+        const seq = ++state.seq;
+        if (reset) { state.cursor = null; $("list").innerHTML = ""; }
+        const url = query(reset);
+        $("reqUrl").textContent = location.origin + url;
+        $("status").textContent = "Загрузка…";
+        $("status").className = "muted";
+        try {
+          const page = await api(url);
+          if (seq !== state.seq) return;
+          state.cursor = page.next_cursor;
+          for (const item of page.items) { rememberSource(item); $("list").append(card(item)); }
+          const shown = $("list").children.length;
+          $("status").textContent = page.total != null
+            ? `Показано ${shown} из ${page.total}`
+            : `Показано ${shown}`;
+          if (!shown) $("status").textContent = "Ничего не подошло под фильтры.";
+          $("more").hidden = !page.next_cursor;
+        } catch (err) {
+          if (seq !== state.seq) return;
+          $("status").textContent = err.message;
+          $("status").className = "error";
+          if (String(err.message).startsWith("401")) $("keyDialog").showModal();
+        }
+      }
+
+      async function boot() {
+        try {
+          const me = await api("/api/v1/auth/me");
+          $("who").textContent = key.get()
+            ? `ключ «${me.display_name}» · права: ${me.scopes.join(", ")}`
+            : `админская сессия (${me.display_name}) — видно больше, чем клиенту`;
+        } catch {
+          $("who").textContent = "нужен ключ";
+          $("keyDialog").showModal();
+          return;
+        }
+        try {
+          state.taxonomy = await api("/api/v1/taxonomy");
+          buildFilters(state.taxonomy);
+        } catch (err) {
+          $("facets").innerHTML = `<p class="error">${err.message}</p>`;
+        }
+        load();
+      }
+
+      $("keyBtn").onclick = () => { $("keyInput").value = key.get(); $("keyDialog").showModal(); };
+      $("keyDialog").addEventListener("close", () => {
+        if ($("keyDialog").returnValue === "save") { key.set($("keyInput").value.trim()); boot(); }
+      });
+      $("reload").onclick = () => load(true);
+      $("more").onclick = () => load(false);
+      $("reset").onclick = () => {
+        document.querySelectorAll("#facets input:checked").forEach((i) => (i.checked = false));
+        for (const id of ["q", "from", "to"]) $(id).value = "";
+        $("source").value = ""; $("order").value = "desc";
+        load(true);
+      };
+      let timer;
+      $("q").oninput = () => { clearTimeout(timer); timer = setTimeout(() => load(true), 300); };
+      for (const id of ["source", "from", "to", "order", "limit"]) $(id).onchange = () => load(true);
+
+      boot();
+    </script>
+  </body>
+</html>

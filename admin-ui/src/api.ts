@@ -166,6 +166,12 @@ export interface Classifier {
   has_secret: boolean;
 }
 
+export interface ClassificationContext {
+  text: string;
+  example_count: number;
+  examples_configured: number;
+}
+
 export interface Stats {
   news_total: number;
   by_status: Record<string, number>;
@@ -181,6 +187,11 @@ export const api = {
   me: () => get<Me>("/api/v1/auth/me"),
 
   stats: () => get<Stats>("/api/v1/admin/stats"),
+
+  classificationContext: () =>
+    get<ClassificationContext>("/api/v1/admin/classification-context"),
+  saveClassificationContext: (text: string) =>
+    put<ClassificationContext>("/api/v1/admin/classification-context", { text }),
 
   facets: () => get<Facet[]>("/api/v1/admin/facets"),
   createFacet: (body: unknown) => post<Facet>("/api/v1/admin/facets", body),

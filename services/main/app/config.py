@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     #: Labels proposed by a classifier below this are stored but never applied.
     default_min_confidence: float = 0.5
     classifier_timeout_s: float = 30.0
+    #: Сколько ручных разметок показывать классификатору как примеры.
+    #: Ноль отключает — контракт этого не требует.
+    classifier_example_count: int = 8
     classification_max_attempts: int = 3
     #: Publish automatically once classification finishes and every required
     #: facet has a value. Turn off to make an editor confirm each item.

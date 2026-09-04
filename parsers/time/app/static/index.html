@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Каналы TiMe · 3rd-news</title>
+    <style>
+      /* Намеренно просто: это рабочий инструмент, а не витрина. */
+      :root {
+        --bg: #f6f7f9; --card: #fff; --line: #d8dce3; --text: #1c2128;
+        --muted: #6b7280; --accent: #2563eb; --danger: #b91c1c; --ok: #15803d;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        font-size: 14px;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); }
+      header {
+        display: flex; align-items: center; gap: 1rem; padding: .6rem 1rem;
+        background: var(--card); border-bottom: 1px solid var(--line);
+        position: sticky; top: 0; z-index: 10; flex-wrap: wrap;
+      }
+      main { padding: 1rem; display: grid; grid-template-columns: 1fr 22rem; gap: 1rem; align-items: start; }
+      @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+      .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: .8rem 1rem; }
+      button {
+        font: inherit; padding: .35rem .7rem; border: 1px solid var(--line);
+        border-radius: 6px; background: var(--card); cursor: pointer;
+      }
+      button:hover:not(:disabled) { border-color: var(--accent); }
+      button:disabled { opacity: .5; cursor: default; }
+      button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+      button.link { border: none; background: none; color: var(--accent); padding: 0 .3rem; }
+      button.link.danger { color: var(--danger); }
+      input, select { font: inherit; padding: .35rem .5rem; border: 1px solid var(--line); border-radius: 6px; background: var(--card); }
+      input[type="search"] { min-width: 16rem; }
+      label.chip { display: inline-flex; align-items: center; gap: .3rem; padding: .25rem .6rem;
+        border: 1px solid var(--line); border-radius: 999px; cursor: pointer; font-size: .9em; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+      th { color: var(--muted); font-weight: 500; }
+      td.num { text-align: right; font-variant-numeric: tabular-nums; }
+      .muted { color: var(--muted); }
+      .error { color: var(--danger); }
+      .ok { color: var(--ok); }
+      .name { font-weight: 500; }
+      .slug { color: var(--muted); font-size: .85em; }
+      .row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+      .selected-item { padding: .5rem 0; border-bottom: 1px solid var(--line); }
+      .toolbar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: .8rem; }
+      dialog { border: 1px solid var(--line); border-radius: 8px; padding: 1.2rem; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong>Каналы TiMe</strong>
+      <span id="status" class="muted"></span>
+      <span style="margin-left:auto" class="row">
+        <button id="refresh" title="Перечитать список из TiMe, минуя кэш">Обновить список</button>
+        <button id="settings" class="link">Токен</button>
+      </span>
+    </header>
+
+    <main>
+      <section class="card">
+        <div class="toolbar">
+          <input type="search" id="q" placeholder="поиск по названию, имени и описанию" />
+          <label class="chip"><input type="checkbox" id="only_with_posts" checked /> только с постами</label>
+          <label class="chip"><input type="checkbox" id="only_joined" /> где я состою</label>
+          <label class="chip"><input type="checkbox" id="only_selected" /> только выбранные</label>
+          <select id="active">
+            <option value="">за всё время</option>
+            <option value="30">активные за 30 дней</option>
+            <option value="90">активные за 90 дней</option>
+            <option value="365">активные за год</option>
+          </select>
+          <select id="sort">
+            <option value="activity">по активности</option>
+            <option value="messages">по числу сообщений</option>
+            <option value="name">по названию</option>
+          </select>
+        </div>
+
+        <div id="listStatus" class="muted">Загрузка…</div>
+        <table id="table" hidden>
+          <thead>
+            <tr>
+              <th style="width:2rem"></th>
+              <th>Канал</th>
+              <th class="num">Сообщений</th>
+              <th>Последний пост</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+
+        <div class="row" style="margin-top:.8rem">
+          <button id="prev">← назад</button>
+          <span id="page" class="muted"></span>
+          <button id="next">вперёд →</button>
+        </div>
+      </section>
+
+      <aside class="card">
+        <h3 style="margin-top:0">Парсим сейчас</h3>
+        <div id="selected"></div>
+        <div class="row" style="margin-top:.8rem">
+          <button id="poll" class="primary">Прогнать сейчас</button>
+        </div>
+        <div class="row" style="margin-top:.5rem">
+          <label class="muted">затянуть историю за
+            <input type="number" id="days" value="365" min="1" style="width:5rem" /> дней
+          </label>
+          <button id="backfill">Затянуть</button>
+        </div>
+        <p class="muted" style="margin-bottom:0">
+          Фоновый опрос идёт сам; кнопки нужны, когда только что добавили канал.
+        </p>
+        <div id="pollResult" style="margin-top:.5rem"></div>
+      </aside>
+    </main>
+
+    <dialog id="tokenDialog">
+      <form method="dialog">
+        <p>Токен парсера (<code>PARSER_API_TOKEN</code>):</p>
+        <input type="password" id="tokenInput" style="width:22rem" />
+        <div class="row" style="margin-top:.8rem">
+          <button value="save" class="primary">Сохранить</button>
+          <button value="cancel">Отмена</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const state = { offset: 0, limit: 50, total: 0, busy: false };
+
+      const token = {
+        get: () => localStorage.getItem("parser_token") || "",
+        set: (v) => localStorage.setItem("parser_token", v),
+      };
+
+      async function api(path, options = {}) {
+        const headers = { ...(options.headers || {}) };
+        if (token.get()) headers.Authorization = `Bearer ${token.get()}`;
+        if (options.body) headers["Content-Type"] = "application/json";
+        const response = await fetch(path, { ...options, headers });
+        if (response.status === 401) {
+          askToken();
+          throw new Error("нужен токен парсера");
+        }
+        if (!response.ok) {
+          let detail = response.statusText;
+          try { detail = (await response.json()).detail ?? detail; } catch {}
+          throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+        }
+        return response.status === 204 ? null : response.json();
+      }
+
+      function askToken() {
+        $("tokenInput").value = token.get();
+        $("tokenDialog").showModal();
+      }
+      $("tokenDialog").addEventListener("close", () => {
+        if ($("tokenDialog").returnValue === "save") {
+          token.set($("tokenInput").value.trim());
+          loadAll();
+        }
+      });
+      $("settings").onclick = askToken;
+
+      function fmtDate(iso) {
+        if (!iso) return "—";
+        return new Date(iso).toLocaleDateString("ru", { year: "numeric", month: "2-digit", day: "2-digit" });
+      }
+
+      function query(refresh = false) {
+        const params = new URLSearchParams({
+          limit: state.limit,
+          offset: state.offset,
+          sort: $("sort").value,
+          only_with_posts: $("only_with_posts").checked,
+          only_joined: $("only_joined").checked,
+          only_selected: $("only_selected").checked,
+        });
+        if ($("q").value.trim()) params.set("q", $("q").value.trim());
+        if ($("active").value) params.set("active_within_days", $("active").value);
+        if (refresh) params.set("refresh", "true");
+        return `/channels?${params}`;
+      }
+
+      async function loadChannels(refresh = false) {
+        $("listStatus").textContent = refresh ? "Перечитываю из TiMe…" : "Загрузка…";
+        $("listStatus").className = "muted";
+        $("table").hidden = true;
+        try {
+          const data = await api(query(refresh));
+          state.total = data.total;
+          render(data.items);
+          $("listStatus").hidden = data.items.length > 0;
+          if (!data.items.length) {
+            $("listStatus").hidden = false;
+            $("listStatus").textContent = "Ничего не нашлось — ослабьте фильтры.";
+          }
+          $("table").hidden = data.items.length === 0;
+          $("page").textContent = `${state.offset + 1}–${state.offset + data.items.length} из ${data.total}`;
+          $("prev").disabled = state.offset === 0;
+          $("next").disabled = state.offset + state.limit >= data.total;
+        } catch (err) {
+          $("listStatus").hidden = false;
+          $("listStatus").textContent = err.message;
+          $("listStatus").className = "error";
+        }
+      }
+
+      function render(items) {
+        $("rows").innerHTML = "";
+        for (const c of items) {
+          const tr = document.createElement("tr");
+
+          const tdCheck = document.createElement("td");
+          const box = document.createElement("input");
+          box.type = "checkbox";
+          box.checked = c.selected;
+          box.onchange = () => toggle(c, box);
+          tdCheck.append(box);
+
+          const tdName = document.createElement("td");
+          const link = document.createElement("a");
+          link.href = c.url;
+          link.target = "_blank";
+          link.rel = "noreferrer";
+          link.textContent = c.display_name;
+          link.className = "name";
+          const slug = document.createElement("div");
+          slug.className = "slug";
+          slug.textContent = c.name + (c.purpose ? ` — ${c.purpose.slice(0, 70)}` : "");
+          tdName.append(link, slug);
+
+          const tdMsgs = document.createElement("td");
+          tdMsgs.className = "num";
+          tdMsgs.textContent = c.total_msg_count.toLocaleString("ru");
+
+          const tdDate = document.createElement("td");
+          tdDate.textContent = fmtDate(c.last_post_at);
+
+          tr.append(tdCheck, tdName, tdMsgs, tdDate);
+          $("rows").append(tr);
+        }
+      }
+
+      async function toggle(channel, box) {
+        box.disabled = true;
+        const ref = `${channel.team}/${channel.name}`;
+        try {
+          if (box.checked) {
+            await api("/channels/selected", { method: "POST", body: JSON.stringify({ channels: [ref] }) });
+          } else {
+            await api(`/channels/selected?channel=${encodeURIComponent(ref)}`, { method: "DELETE" });
+          }
+          channel.selected = box.checked;
+          await loadSelected();
+        } catch (err) {
+          box.checked = !box.checked;
+          alert(err.message);
+        } finally {
+          box.disabled = false;
+        }
+      }
+
+      async function loadSelected() {
+        try {
+          const items = await api("/channels/selected");
+          $("selected").innerHTML = "";
+          if (!items.length) {
+            $("selected").innerHTML = '<p class="muted">Пока ничего. Отметьте каналы слева.</p>';
+            return;
+          }
+          for (const s of items) {
+            const div = document.createElement("div");
+            div.className = "selected-item";
+            const run = s.last_run;
+            const stats = run
+              ? run.error
+                ? `<span class="error">ошибка: ${run.error.slice(0, 80)}</span>`
+                : `<span class="ok">${run.created}</span> новых, ${run.duplicates} были, ${run.skipped} мимо`
+              : '<span class="muted">ещё не запускался</span>';
+            div.innerHTML = `<div class="name">${s.display_name ?? s.channel}</div>
+              <div class="slug">${s.team}/${s.channel}</div>
+              <div style="font-size:.9em">${stats}</div>`;
+
+            // Кто в этом канале пишет новости. В чатах потоков — кураторы с
+            // правами; но бывают каналы, где публикует обычный участник, и
+            // там фильтр по правам выкосил бы почти все анонсы.
+            const modeWrap = document.createElement("label");
+            modeWrap.className = "chip";
+            modeWrap.title = "Снимите, если в канале объявления пишет обычный участник";
+            const mode = document.createElement("input");
+            mode.type = "checkbox";
+            mode.checked = s.authors === "privileged";
+            mode.onchange = async () => {
+              mode.disabled = true;
+              try {
+                await api(`/channels/selected?channel=${encodeURIComponent(s.team + "/" + s.channel)}`
+                          + `&authors=${mode.checked ? "privileged" : "all"}`, { method: "PATCH" });
+              } catch (err) { mode.checked = !mode.checked; alert(err.message); }
+              finally { mode.disabled = false; }
+            };
+            modeWrap.append(mode, document.createTextNode("только от тех, кому доверено"));
+            div.append(modeWrap);
+            const remove = document.createElement("button");
+            remove.className = "link danger";
+            remove.textContent = "убрать";
+            remove.onclick = async () => {
+              await api(`/channels/selected?channel=${encodeURIComponent(s.team + "/" + s.channel)}`, { method: "DELETE" });
+              await Promise.all([loadSelected(), loadChannels()]);
+            };
+            div.append(remove);
+            $("selected").append(div);
+          }
+        } catch (err) {
+          $("selected").innerHTML = `<p class="error">${err.message}</p>`;
+        }
+      }
+
+      async function runPoll(params = "") {
+        if (state.busy) return;
+        state.busy = true;
+        $("poll").disabled = $("backfill").disabled = true;
+        $("pollResult").innerHTML = '<span class="muted">Идёт прогон, это может занять минуты…</span>';
+        try {
+          const data = await api(`/poll${params}`, { method: "POST" });
+          const lines = Object.entries(data.results).map(
+            ([k, r]) => `${k}: <span class="ok">${r.created}</span> новых, ${r.duplicates} были`
+          );
+          $("pollResult").innerHTML = lines.join("<br>") || '<span class="muted">Нечего парсить.</span>';
+          await loadSelected();
+        } catch (err) {
+          $("pollResult").innerHTML = `<span class="error">${err.message}</span>`;
+        } finally {
+          state.busy = false;
+          $("poll").disabled = $("backfill").disabled = false;
+        }
+      }
+
+      async function loadStatus() {
+        try {
+          const s = await api("/status");
+          $("status").textContent = s.authorized
+            ? `TiMe подключён · выбрано ${s.selected} · опрос раз в ${s.poll_interval_s}с`
+            : "нет доступа к TiMe — проверьте TIME_COOKIE";
+          $("status").className = s.authorized ? "muted" : "error";
+        } catch (err) {
+          $("status").textContent = err.message;
+          $("status").className = "error";
+        }
+      }
+
+      function loadAll() {
+        loadStatus();
+        loadSelected();
+        loadChannels();
+      }
+
+      let timer;
+      const debounce = () => { clearTimeout(timer); timer = setTimeout(() => { state.offset = 0; loadChannels(); }, 300); };
+      $("q").oninput = debounce;
+      for (const id of ["only_with_posts", "only_joined", "only_selected", "active", "sort"]) {
+        $(id).onchange = () => { state.offset = 0; loadChannels(); };
+      }
+      $("prev").onclick = () => { state.offset = Math.max(0, state.offset - state.limit); loadChannels(); };
+      $("next").onclick = () => { state.offset += state.limit; loadChannels(); };
+      $("refresh").onclick = () => loadChannels(true);
+      $("poll").onclick = () => runPoll();
+      $("backfill").onclick = () => runPoll(`?max_age_days=${$("days").value}&max_pages=5`);
+
+      loadAll();
+    </script>
+  </body>
+</html>

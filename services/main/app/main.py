@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from . import queue
 from .bootstrap import bootstrap
 from .config import settings
 from .db import SessionLocal
+from .deps import ReadPrincipal
 from .routers import (
     admin_catalog,
     admin_news,
@@ -61,13 +63,34 @@ app.include_router(admin_taxonomy.router)
 app.include_router(admin_catalog.router)
 app.include_router(admin_news.router)
 
-# Attachments are served straight off the volume; put a CDN or nginx in front
-# of this path in production.
-app.mount(
-    settings.media_base_url,
-    StaticFiles(directory=settings.media_root, check_dir=False),
-    name="media",
-)
+@app.get(settings.media_base_url + "/{path:path}", include_in_schema=False)
+async def media(path: str, principal: ReadPrincipal) -> FileResponse:
+    """Вложения — за той же авторизацией, что и сама лента.
+
+    Раздавать их статикой было бы дырой: имена файлов попадают в выдачу, и
+    любой, кому досталась ссылка, читал бы приложения к закрытым новостям без
+    ключа. `<img>` заголовков не шлёт, поэтому ключ принимается и параметром
+    `?api_key=` — это уже умеет ApiKeyBackend.
+    """
+
+    del principal
+    root = settings.media_root.resolve()
+    target = (root / path).resolve()
+    # Защита от `../`: файл обязан лежать внутри корня медиа.
+    if not target.is_relative_to(root) or not target.is_file():
+        raise HTTPException(status_code=404, detail="файл не найден")
+    return FileResponse(target)
+
+
+@app.get("/preview", include_in_schema=False)
+async def preview() -> FileResponse:
+    """Страница, показывающая ленту глазами клиента.
+
+    Инструмент для настройки: фильтры она строит из текущей таксономии, а
+    ходит в тот же `/api/v1/news`, что и любой внешний клиент.
+    """
+
+    return FileResponse(Path(__file__).parent / "static" / "preview.html")
 
 
 @app.get("/health", tags=["meta"])

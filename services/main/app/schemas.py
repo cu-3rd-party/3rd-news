@@ -279,6 +279,20 @@ class UserOut(ORMModel):
     created_at: datetime
 
 
+class ContextIn(BaseModel):
+    """Свободный текст про организацию для классификаторов."""
+
+    text: str = Field(max_length=20000)
+
+
+class ContextOut(BaseModel):
+    text: str
+    #: Сколько ручных разметок реально нашлось на роль примеров.
+    example_count: int
+    #: Сколько запрошено настройкой NEWS_CLASSIFIER_EXAMPLE_COUNT.
+    examples_configured: int
+
+
 class StatsOut(BaseModel):
     news_total: int
     by_status: dict[str, int]

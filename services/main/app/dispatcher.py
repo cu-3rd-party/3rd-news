@@ -20,6 +20,7 @@ from thirdnews_contracts import (
     sign_payload,
 )
 
+from . import knowledge
 from .config import settings
 from .labels import (
     entries_from,
@@ -46,6 +47,10 @@ async def _build_request(
     session: AsyncSession, news: News, classifier: Classifier, request_id: str
 ) -> ClassifyRequest:
     taxonomy = await build_taxonomy(session, classifier.facets or None)
+    # Контекст организации и примеры ручной разметки — то, чего в самой
+    # новости нет: расшифровки сокращений и принятые у редакции решения.
+    context = await knowledge.get_context(session)
+    examples = await knowledge.collect_examples(session, exclude_news_id=news.id)
     return ClassifyRequest(
         request_id=request_id,
         news=ClassifyNews(
@@ -70,6 +75,8 @@ async def _build_request(
             extra=news.extra or {},
         ),
         taxonomy=taxonomy,
+        context=context,
+        examples=examples,
         options=ClassifyOptions(
             facets=list(classifier.facets or []),
             min_confidence=classifier.min_confidence,

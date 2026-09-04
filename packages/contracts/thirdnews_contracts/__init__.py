@@ -20,6 +20,7 @@ from .classifier import (
     ClassifyOptions,
     ClassifyRequest,
     ClassifyResponse,
+    LabeledExample,
     ProposedLabel,
     CallbackResult,
 )
@@ -43,6 +44,7 @@ __all__ = [
     "ClassifyOptions",
     "ClassifyRequest",
     "ClassifyResponse",
+    "LabeledExample",
     "ProposedLabel",
     "CallbackResult",
     "Attachment",

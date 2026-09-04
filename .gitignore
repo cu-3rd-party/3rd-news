@@ -15,4 +15,7 @@ dist/
 
 # Local config and data
 .env
+# Куки TiMe и прочие локальные секреты парсеров.
+.env.local
+*.env.local
 data/

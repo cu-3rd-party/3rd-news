@@ -25,7 +25,12 @@ from app.security import (  # noqa: E402
     hash_secret,
     verify_password,
 )
-from app.storage import guess_kind, safe_filename  # noqa: E402
+from app.storage import (  # noqa: E402
+    display_filename,
+    guess_kind,
+    public_url,
+    safe_filename,
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -175,6 +180,46 @@ def test_safe_filename_falls_back_for_empty_input():
     assert safe_filename("///")
 
 
+def test_safe_filename_never_loses_the_extension():
+    """Без расширения статика отдаётся как octet-stream и картинка не откроется."""
+
+    assert safe_filename("эрмитаж.png") == "file.png"
+    assert safe_filename("события август 24-30 4.png").endswith(".png")
+    assert safe_filename("отчёт.pdf").endswith(".pdf")
+
+
+def test_safe_filename_keeps_ascii_names_readable():
+    assert safe_filename("poster_2026.png") == "poster_2026.png"
+
+
+def test_display_filename_keeps_cyrillic():
+    """Почти всё, что тут хранится, названо по-русски."""
+
+    assert display_filename("события август 24-30.png") == "события август 24-30.png"
+
+
+def test_display_filename_strips_the_path():
+    assert display_filename("../../etc/passwd") == "passwd"
+    assert display_filename("/var/tmp/афиша.png") == "афиша.png"
+
+
+def test_display_filename_handles_nothing():
+    assert display_filename(None) is None
+    assert display_filename("   ") is None
+
+
+def test_public_url_is_absolute():
+    """Относительный /media бесполезен боту, который читает API снаружи."""
+
+    url = public_url("2026/09/abc_poster.png")
+    assert url.startswith("http://") or url.startswith("https://")
+    assert url.endswith("/media/2026/09/abc_poster.png")
+
+
+def test_public_url_of_nothing_is_nothing():
+    assert public_url(None) is None
+
+
 @pytest.mark.parametrize(
     ("mime", "filename", "expected"),
     [
@@ -187,3 +232,28 @@ def test_safe_filename_falls_back_for_empty_input():
 )
 def test_guess_kind(mime, filename, expected):
     assert guess_kind(mime, filename) == expected
+
+
+# --------------------------------------------------------------------------- #
+# Вложения не должны утекать мимо авторизации
+# --------------------------------------------------------------------------- #
+
+
+def test_media_route_requires_read_scope():
+    """Раздача статикой была дырой: ссылка из выдачи открывалась без ключа."""
+
+    from app.main import app
+
+    routes = {getattr(r, "path", ""): r for r in app.routes}
+    media = routes.get("/media/{path:path}")
+    assert media is not None, "маршрут /media должен быть обычной ручкой, а не mount"
+    names = {d.call.__name__ for d in media.dependant.dependencies}
+    assert any("scope" in n or "principal" in n for n in names) or media.dependant.dependencies
+
+
+def test_media_is_not_mounted_as_static():
+    from starlette.staticfiles import StaticFiles
+
+    from app.main import app
+
+    assert not any(isinstance(getattr(r, "app", None), StaticFiles) for r in app.routes)

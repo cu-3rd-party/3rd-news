@@ -36,12 +36,17 @@ def content_hash(title: str | None, body_md: str) -> str:
 
 
 async def resolve_source(
-    session: AsyncSession, source_key: str | None, api_key: ApiKey | None
+    session: AsyncSession,
+    source_key: str | None,
+    api_key: ApiKey | None,
+    title_hint: str | None = None,
 ) -> Source | None:
     """Find the source, creating an inactive stub for keys we have not seen.
 
     Auto-creating means a brand-new third-party parser works the moment it has
-    a key, and the admin only has to fill in the title afterwards.
+    a key. `title_hint` is the parser's own human name for the channel (it
+    arrives as `source_text`) — without it the admin's list of sources is a
+    column of slugs like `time-tsentralnyy-universitet-anonsy-tsu`.
     """
 
     if not source_key and api_key is not None and api_key.source_id:
@@ -56,7 +61,7 @@ async def resolve_source(
         await session.execute(select(Source).where(Source.slug == slug))
     ).scalar_one_or_none()
     if source is None:
-        source = Source(slug=slug, title=source_key, kind="other")
+        source = Source(slug=slug, title=(title_hint or source_key).strip(), kind="other")
         session.add(source)
         await session.flush()
     return source
@@ -65,16 +70,23 @@ async def resolve_source(
 async def _find_duplicate(
     session: AsyncSession, source: Source | None, submission: NewsSubmission, digest: str
 ) -> News | None:
+    """Видели ли мы уже эту новость.
+
+    Если парсер дал `external_id`, он тем самым сказал, чем один пост
+    отличается от другого, и это единственный критерий. Догадываться по хэшу
+    текста в таком случае нельзя: два разных поста могут иметь одинаковое
+    (в том числе пустое — пост из одной картинки) тело, и второй молча
+    пропал бы. Хэш всё равно сохраняется, он нужен для разбора перепечаток.
+    """
+
     if source is not None and submission.external_id:
-        existing = (
+        return (
             await session.execute(
                 select(News).where(
                     News.source_id == source.id, News.external_id == submission.external_id
                 )
             )
         ).scalar_one_or_none()
-        if existing is not None:
-            return existing
 
     since = datetime.now(timezone.utc) - DEDUP_WINDOW
     query = select(News).where(News.dedup_hash == digest, News.received_at >= since)
@@ -92,7 +104,9 @@ async def create_news(
 ) -> IngestResult:
     """Store one submission. Idempotent per `(source, external_id)`."""
 
-    source = await resolve_source(session, submission.source_key, api_key)
+    source = await resolve_source(
+        session, submission.source_key, api_key, title_hint=submission.source_text
+    )
     digest = content_hash(submission.title, submission.body_md)
 
     duplicate = await _find_duplicate(session, source, submission, digest)

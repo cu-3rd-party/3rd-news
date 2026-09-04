@@ -150,3 +150,5 @@ th { color: var(--muted); font-weight: 500; }
   padding: 1.5rem;
 }
 .login label { display: flex; flex-direction: column; gap: 0.25rem; }
+
+.ok { color: #15803d; }

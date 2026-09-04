@@ -1,0 +1,182 @@
+{
+  "_comment": "Синтетический ответ GET /api/v4/channels/{id}/posts. Набор полей и типы взяты с живого канала TiMe, тексты выдуманы: репозиторий публичный, настоящие внутренние объявления сюда класть нельзя. Каждый пост закрывает свой случай, который реально встречается в канале.",
+  "order": [
+    "post_announcement",
+    "post_image_only",
+    "post_oneliner",
+    "post_reply",
+    "post_system",
+    "post_deleted",
+    "post_webhook"
+  ],
+  "posts": {
+    "post_announcement": {
+      "id": "post_announcement",
+      "create_at": 1788266446965,
+      "update_at": 1788266446965,
+      "edit_at": 1788270000000,
+      "delete_at": 0,
+      "is_pinned": false,
+      "user_id": "user_editor",
+      "channel_id": "channel_anons",
+      "root_id": "",
+      "original_id": "",
+      "message": "**Стартуем в новый учебный год** :cu-black-hat:\n\nПервая пара — 1 сентября в 9:00.\nРасписание уже в личном кабинете.\n\nПодробности у деканата.",
+      "type": "",
+      "props": { "team_id": "team_cu" },
+      "hashtags": "",
+      "reply_count": 3,
+      "file_ids": ["file_poster"],
+      "has_reactions": true,
+      "metadata": {
+        "files": [
+          {
+            "id": "file_poster",
+            "user_id": "user_editor",
+            "post_id": "post_announcement",
+            "channel_id": "channel_anons",
+            "create_at": 1788266446965,
+            "update_at": 1788266446965,
+            "delete_at": 0,
+            "name": "афиша сентябрь.png",
+            "extension": "png",
+            "size": 140542,
+            "mime_type": "image/png",
+            "width": 1200,
+            "height": 630,
+            "has_preview_image": true
+          }
+        ]
+      }
+    },
+    "post_image_only": {
+      "id": "post_image_only",
+      "create_at": 1788180046965,
+      "update_at": 1788180046965,
+      "edit_at": 0,
+      "delete_at": 0,
+      "user_id": "user_editor",
+      "channel_id": "channel_anons",
+      "root_id": "",
+      "original_id": "",
+      "message": "",
+      "type": "",
+      "props": {},
+      "hashtags": "",
+      "file_ids": ["file_screenshot"],
+      "metadata": {
+        "files": [
+          {
+            "id": "file_screenshot",
+            "post_id": "post_image_only",
+            "create_at": 1788180046965,
+            "delete_at": 0,
+            "name": "Снимок экрана.png",
+            "extension": "png",
+            "size": 98211,
+            "mime_type": "image/png",
+            "width": 800,
+            "height": 600,
+            "has_preview_image": true
+          }
+        ]
+      }
+    },
+    "post_oneliner": {
+      "id": "post_oneliner",
+      "create_at": 1788093646965,
+      "update_at": 1788093646965,
+      "edit_at": 0,
+      "delete_at": 0,
+      "user_id": "user_editor",
+      "channel_id": "channel_anons",
+      "root_id": "",
+      "original_id": "",
+      "message": "Напоминаем: столовая завтра работает до 16:00.",
+      "type": "",
+      "props": {},
+      "hashtags": "",
+      "file_ids": [],
+      "metadata": {}
+    },
+    "post_reply": {
+      "id": "post_reply",
+      "create_at": 1788270046965,
+      "update_at": 1788270046965,
+      "edit_at": 0,
+      "delete_at": 0,
+      "user_id": "user_student",
+      "channel_id": "channel_anons",
+      "root_id": "post_announcement",
+      "original_id": "",
+      "message": "Привет! Подскажите, а билеты уже рассылали?",
+      "type": "",
+      "props": {},
+      "hashtags": "",
+      "file_ids": [],
+      "metadata": {}
+    },
+    "post_system": {
+      "id": "post_system",
+      "create_at": 1788007246965,
+      "update_at": 1788007246965,
+      "edit_at": 0,
+      "delete_at": 0,
+      "user_id": "user_student",
+      "channel_id": "channel_anons",
+      "root_id": "",
+      "original_id": "",
+      "message": "user_student присоединился к каналу.",
+      "type": "system_join_channel",
+      "props": { "username": "user_student" },
+      "hashtags": "",
+      "file_ids": [],
+      "metadata": {}
+    },
+    "post_deleted": {
+      "id": "post_deleted",
+      "create_at": 1787920846965,
+      "update_at": 1787920846965,
+      "edit_at": 0,
+      "delete_at": 1787921000000,
+      "user_id": "user_editor",
+      "channel_id": "channel_anons",
+      "root_id": "",
+      "original_id": "",
+      "message": "Ошибочное объявление, не читайте.",
+      "type": "",
+      "props": {},
+      "hashtags": "",
+      "file_ids": [],
+      "metadata": {}
+    },
+    "post_webhook": {
+      "id": "post_webhook",
+      "create_at": 1787834446965,
+      "update_at": 1787834446965,
+      "edit_at": 0,
+      "delete_at": 0,
+      "user_id": "user_bot",
+      "channel_id": "channel_anons",
+      "root_id": "",
+      "original_id": "",
+      "message": "",
+      "type": "",
+      "props": {
+        "from_webhook": "true",
+        "override_username": "Бот расписания",
+        "attachments": [
+          {
+            "pretext": "Изменение в расписании",
+            "title": "Лекция перенесена",
+            "text": "Лекция по матанализу переносится в аудиторию 402.",
+            "fallback": "Лекция по матанализу переносится в аудиторию 402."
+          }
+        ]
+      },
+      "hashtags": "",
+      "file_ids": [],
+      "metadata": {}
+    }
+  }
+}

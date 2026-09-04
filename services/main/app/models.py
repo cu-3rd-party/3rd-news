@@ -388,6 +388,23 @@ class ClassificationJob(TimestampMixin, Base):
     __table_args__ = (UniqueConstraint("news_id", "classifier_id", name="uq_job_news_classifier"),)
 
 
+class Setting(Base):
+    """Настройки, которые редактор меняет в админке, а не в .env.
+
+    Пока здесь живёт один ключ — текст про организацию для классификаторов.
+    Таблица, а не конфиг, именно потому, что это редакторские данные: их
+    правят на ходу и без перезапуска.
+    """
+
+    __tablename__ = "settings"
+
+    key: Mapped[str] = mapped_column(String(120), primary_key=True)
+    value: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
 class AuditLog(Base):
     __tablename__ = "audit_log"
 

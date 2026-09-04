@@ -7,7 +7,8 @@ from fastapi import APIRouter, HTTPException
 from slugify import slugify
 from sqlalchemy import func, select
 
-from .. import audit
+from .. import audit, knowledge
+from ..config import settings
 from ..deps import AdminPrincipal, DbSession, EditorPrincipal
 from ..models import (
     ApiKey,
@@ -19,6 +20,8 @@ from ..models import (
 )
 from ..schemas import (
     ApiKeyCreated,
+    ContextIn,
+    ContextOut,
     ApiKeyIn,
     ApiKeyOut,
     ClassifierIn,
@@ -403,3 +406,36 @@ async def stats(session: DbSession, principal: EditorPrincipal) -> StatsOut:
         sources=sources,
         classifiers_active=classifiers_active,
     )
+
+
+# --------------------------------------------------------------------------- #
+# База знаний классификаторов
+# --------------------------------------------------------------------------- #
+
+
+@router.get("/classification-context", response_model=ContextOut)
+async def get_classification_context(
+    session: DbSession, principal: EditorPrincipal
+) -> ContextOut:
+    """Что классификаторы знают об организации и на каких примерах учатся."""
+
+    del principal
+    examples = await knowledge.collect_examples(session)
+    return ContextOut(
+        text=await knowledge.get_context(session) or "",
+        example_count=len(examples),
+        examples_configured=settings.classifier_example_count,
+    )
+
+
+@router.put("/classification-context", response_model=ContextOut)
+async def set_classification_context(
+    payload: ContextIn, session: DbSession, principal: AdminPrincipal
+) -> ContextOut:
+    await knowledge.set_context(session, payload.text)
+    await audit.log(
+        session, principal, "update", "setting", knowledge.CONTEXT_KEY,
+        {"length": len(payload.text)},
+    )
+    await session.commit()
+    return await get_classification_context(session, principal)

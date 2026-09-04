@@ -128,3 +128,126 @@ def test_taxonomy_prompt_respects_the_requested_facets():
     prompt = _taxonomy_prompt(scoped)
     assert "stream" in prompt
     assert "importance" not in prompt
+
+
+# --------------------------------------------------------------------------- #
+# Ответ модели, которого может не быть
+# --------------------------------------------------------------------------- #
+
+_content_of = ai_classifier._content_of
+
+
+def test_plain_content_is_returned():
+    body = {"choices": [{"message": {"content": '{"labels": []}'}}]}
+    assert _content_of(body, "m") == '{"labels": []}'
+
+
+def test_empty_content_falls_back_to_reasoning():
+    """Рассуждающая модель тратит бюджет на размышления и оставляет content пустым."""
+
+    body = {"choices": [{"message": {"content": None, "reasoning": 'итак, {"labels": []}'}}]}
+    assert "labels" in _content_of(body, "m")
+
+
+def test_blank_content_also_falls_back():
+    body = {"choices": [{"message": {"content": "   ", "reasoning": '{"labels": []}'}}]}
+    assert _content_of(body, "m") == '{"labels": []}'
+
+
+def test_completely_empty_answer_names_the_likely_cause():
+    body = {"choices": [{"message": {"content": None}, "finish_reason": "length"}]}
+    with pytest.raises(RuntimeError, match="max_tokens"):
+        _content_of(body, "deepseek/v4")
+
+
+def test_provider_error_is_surfaced_not_swallowed():
+    body = {"error": {"message": "rate limited"}}
+    with pytest.raises(RuntimeError, match="rate limited"):
+        _content_of(body, "m")
+
+
+def test_no_choices_at_all():
+    with pytest.raises(RuntimeError, match="ни одного варианта"):
+        _content_of({"choices": []}, "m")
+
+
+# --------------------------------------------------------------------------- #
+# База знаний: контекст организации и примеры ручной разметки
+# --------------------------------------------------------------------------- #
+
+_context_prompt = ai_classifier._context_prompt
+_examples_prompt = ai_classifier._examples_prompt
+
+
+def request_with(**kwargs) -> ClassifyRequest:
+    return ClassifyRequest(
+        request_id="r",
+        news=ClassifyNews(id="n", body_md="текст"),
+        taxonomy=TAXONOMY,
+        options=ClassifyOptions(),
+        **kwargs,
+    )
+
+
+def test_context_reaches_the_prompt():
+    prompt = _context_prompt(request_with(context="ВКР — выпускная работа."))
+    assert "ВКР — выпускная работа." in prompt
+
+
+def test_missing_context_adds_nothing():
+    assert _context_prompt(request_with()) == ""
+    assert _context_prompt(request_with(context="   ")) == ""
+
+
+def test_examples_carry_the_editors_labels():
+    from thirdnews_contracts import LabeledExample
+
+    prompt = _examples_prompt(
+        request_with(
+            examples=[
+                LabeledExample(
+                    title="Семинар ВКР",
+                    body_md="Встреча с научным руководителем",
+                    labels={"importance": ["high"], "stream": ["2024"]},
+                )
+            ]
+        )
+    )
+    assert "Семинар ВКР" in prompt
+    assert "importance" in prompt and "high" in prompt
+
+
+def test_no_examples_adds_nothing():
+    assert _examples_prompt(request_with()) == ""
+
+
+def test_example_bodies_are_trimmed():
+    """Примеров несколько, и целиком они раздули бы каждый запрос."""
+
+    from thirdnews_contracts import LabeledExample
+
+    prompt = _examples_prompt(
+        request_with(examples=[LabeledExample(body_md="я" * 5000, labels={"importance": ["high"]})])
+    )
+    assert len(prompt) < 1200
+
+
+def test_example_newlines_do_not_break_the_block():
+    from thirdnews_contracts import LabeledExample
+
+    prompt = _examples_prompt(
+        request_with(
+            examples=[LabeledExample(body_md="строка\n\nдругая", labels={"importance": ["high"]})]
+        )
+    )
+    assert "текст: строка другая" in prompt
+
+
+def test_contract_keeps_both_fields_optional():
+    """Классификатор, который их игнорирует, обязан остаться совместимым."""
+
+    plain = ClassifyRequest.model_validate(
+        {"request_id": "r", "news": {"id": "n", "body_md": "t"}, "taxonomy": {"facets": []}}
+    )
+    assert plain.context is None
+    assert plain.examples == []

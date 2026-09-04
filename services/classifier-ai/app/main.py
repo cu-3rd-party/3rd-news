@@ -28,6 +28,9 @@ DEFAULT_MODEL = os.getenv("OPENROUTER_MODEL", "anthropic/claude-haiku-4.5")
 #: cost money.
 MAX_BODY_CHARS = int(os.getenv("MAX_BODY_CHARS", "6000"))
 REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "60"))
+#: Ответ — короткий JSON, но рассуждающим моделям нужен запас, иначе они
+#: упираются в лимит посреди размышлений и не доходят до самого ответа.
+MAX_OUTPUT_TOKENS = int(os.getenv("MAX_OUTPUT_TOKENS", "2000"))
 
 SYSTEM_PROMPT = """\
 Ты классифицируешь новости университета по заданным осям (facets).
@@ -63,6 +66,39 @@ def _taxonomy_prompt(request: ClassifyRequest) -> str:
     return "\n".join(lines)
 
 
+def _context_prompt(request: ClassifyRequest) -> str:
+    """Что редактор рассказал модели об организации.
+
+    Без этого «ВКР», «поток Восток» и «Fundamentals» для модели просто
+    незнакомые слова, и она додумывает их значение сама.
+    """
+
+    context = (request.context or "").strip()
+    return f"Что нужно знать об университете:\n{context}" if context else ""
+
+
+def _examples_prompt(request: ClassifyRequest) -> str:
+    """Как размечает редактор — на живых примерах.
+
+    Это память системы: правки в админке возвращаются сюда и задают принятые
+    соглашения точнее любой инструкции.
+    """
+
+    if not request.examples:
+        return ""
+
+    blocks = []
+    for example in request.examples:
+        labels = json.dumps(example.labels, ensure_ascii=False)
+        head = (example.title or example.body_md[:60]).strip()
+        body = " ".join(example.body_md.split())[:400]
+        blocks.append(f"— «{head}»\n  текст: {body}\n  разметка: {labels}")
+    return (
+        "Примеры того, как эти же оси размечал редактор. Следуй этим "
+        "соглашениям, а не своим представлениям:\n" + "\n".join(blocks)
+    )
+
+
 def _news_prompt(request: ClassifyRequest) -> str:
     news = request.news
     body = news.body_md[:MAX_BODY_CHARS]
@@ -75,6 +111,36 @@ def _news_prompt(request: ClassifyRequest) -> str:
         f"Дата публикации: {news.published_at or '(неизвестна)'}\n"
         f"Вложения: {attachments}\n\n"
         f"Текст:\n{body}"
+    )
+
+
+def _content_of(body: dict, model: str) -> str:
+    """Достаёт текст ответа, не веря, что он там обязательно есть.
+
+    У рассуждающих моделей `content` бывает пустым или `null`: весь бюджет
+    ушёл на размышления. Тогда JSON ищем прямо в них — модель обычно
+    проговаривает ответ до того, как обрывается.
+    """
+
+    if body.get("error"):
+        raise RuntimeError(f"{model}: {str(body['error'])[:300]}")
+
+    choices = body.get("choices") or []
+    if not choices:
+        raise RuntimeError(f"{model} не вернул ни одного варианта ответа")
+
+    message = choices[0].get("message") or {}
+    for field in ("content", "reasoning"):
+        value = message.get(field)
+        if value and value.strip():
+            if field == "reasoning":
+                logger.info("%s оставил content пустым, разбираю reasoning", model)
+            return value
+
+    finish = choices[0].get("finish_reason")
+    raise RuntimeError(
+        f"{model} вернул пустой ответ (finish_reason={finish}); "
+        "скорее всего не хватило max_tokens"
     )
 
 
@@ -137,18 +203,28 @@ async def classify(request: ClassifyRequest) -> list[ProposedLabel]:
     model = config.get("model") or DEFAULT_MODEL
     extra_instructions = config.get("instructions") or ""
 
-    user_prompt = (
-        "Схема классификации:\n"
-        f"{_taxonomy_prompt(request)}\n\n"
-        f"{extra_instructions}\n\n"
-        "Новость:\n"
-        f"{_news_prompt(request)}"
+    user_prompt = "\n\n".join(
+        part
+        for part in (
+            _context_prompt(request),
+            "Схема классификации:\n" + _taxonomy_prompt(request),
+            _examples_prompt(request),
+            extra_instructions,
+            "Новость:\n" + _news_prompt(request),
+        )
+        if part and part.strip()
     ).strip()
 
     payload = {
         "model": model,
         "temperature": config.get("temperature", 0.0),
         "response_format": {"type": "json_object"},
+        "max_tokens": config.get("max_tokens", MAX_OUTPUT_TOKENS),
+        # Классификация по готовому рубрикатору — не та задача, где нужны
+        # длинные размышления: они удваивают цену и съедают бюджет вывода,
+        # после чего модель возвращает пустой content. Кому надо — включит
+        # обратно через config.
+        "reasoning": config.get("reasoning", {"enabled": False}),
         "messages": [
             {"role": "system", "content": config.get("system_prompt") or SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
@@ -167,8 +243,7 @@ async def classify(request: ClassifyRequest) -> list[ProposedLabel]:
         response.raise_for_status()
         body = response.json()
 
-    content = body["choices"][0]["message"]["content"]
-    return _valid_labels(request, _extract_json(content))
+    return _valid_labels(request, _extract_json(_content_of(body, model)))
 
 
 app = build_classifier_app(

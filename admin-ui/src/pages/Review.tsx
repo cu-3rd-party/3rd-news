@@ -190,7 +190,19 @@ export function ReviewPage() {
         </article>
       ))}
 
-      {items.length === 0 && <p className="muted">Ничего не найдено.</p>}
+      {items.length === 0 && (
+        <p className="muted">
+          Ничего не найдено.
+          {!status.includes("published") && (
+            <>
+              {" "}
+              Если новости приходят, но очередь пуста — скорее всего они уже
+              опубликованы автоматически (`NEWS_AUTO_PUBLISH`). Включите фильтр{" "}
+              <code>published</code>.
+            </>
+          )}
+        </p>
+      )}
     </div>
   );
 }

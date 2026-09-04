@@ -107,6 +107,33 @@ services:
         condition: service_started
     profiles: ["parsers"]
 
+  # Парсер каналов TiMe. Куки берутся из браузера, см. parsers/time/README.md.
+  parser-time:
+    build:
+      context: .
+      dockerfile: parsers/time/Dockerfile
+    # TIME_COOKIE / TIME_CSRF / TIME_TOKEN / TIME_CHANNELS живут здесь, а не в
+    # .env: куки — секрет одного парсера, и лежат они рядом с ним, в
+    # gitignored-файле. Значения из environment ниже перебили бы env_file,
+    # поэтому TIME_* тут намеренно не перечислены.
+    env_file:
+      - path: parsers/time/.env.local
+        required: false
+    environment:
+      NEWS_URL: http://main:8000
+      NEWS_API_KEY: ${TIME_PARSER_API_KEY:-}
+      POLL_INTERVAL_S: ${TIME_POLL_INTERVAL_S:-600}
+      STATE_PATH: /data/state.json
+      PARSER_API_TOKEN: ${TIME_PARSER_API_TOKEN:-}
+    volumes:
+      - time_state:/data
+    ports:
+      - "8201:8000"
+    depends_on:
+      main:
+        condition: service_started
+    profiles: ["parsers"]
+
   admin-ui:
     build:
       context: ./admin-ui
@@ -117,6 +144,7 @@ services:
     profiles: ["ui"]
 
 volumes:
+  time_state:
   pgdata:
   redisdata:
   media:
