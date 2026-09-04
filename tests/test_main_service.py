@@ -257,3 +257,46 @@ def test_media_is_not_mounted_as_static():
     from app.main import app
 
     assert not any(isinstance(getattr(r, "app", None), StaticFiles) for r in app.routes)
+
+
+# --------------------------------------------------------------------------- #
+# Миграции
+# --------------------------------------------------------------------------- #
+
+
+def test_initial_migration_does_not_absorb_later_tables():
+    """Первая ревизия обязана создавать только то, что было на её момент.
+
+    Иначе на чистой базе она создаёт таблицу из будущего, и следующая
+    миграция падает с `relation already exists` — ровно это и случилось при
+    первом развёртывании на сервер.
+    """
+
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[1] / "services/main/migrations/versions/0001_initial.py"
+    spec = importlib.util.spec_from_file_location("migration_0001", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    from app.db import Base
+
+    assert "settings" not in module.TABLES, "settings появилась во второй ревизии"
+    # Всё перечисленное должно существовать в моделях — иначе список протух.
+    assert set(module.TABLES) <= set(Base.metadata.tables)
+
+
+def test_every_model_table_is_covered_by_some_migration():
+    """Таблица в моделях без миграции — это база, которая не поднимется."""
+
+    import re
+    from pathlib import Path
+
+    from app.db import Base
+
+    versions = Path(__file__).resolve().parents[1] / "services/main/migrations/versions"
+    text = " ".join(p.read_text(encoding="utf-8") for p in versions.glob("*.py"))
+    mentioned = set(re.findall(r"[\"']([a-z_]+)[\"']", text))
+    missing = set(Base.metadata.tables) - mentioned
+    assert not missing, f"нет миграции для таблиц: {sorted(missing)}"
