@@ -31,7 +31,7 @@ services:
       timeout: 3s
       retries: 20
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
 
   redis:
     image: redis:7-alpine
@@ -58,7 +58,7 @@ services:
       redis:
         condition: service_healthy
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
 
   worker:
     build:
@@ -79,7 +79,7 @@ services:
     environment:
       CLASSIFIER_SECRET: ${REGEX_CLASSIFIER_SECRET:-dev-regex-secret}
     ports:
-      - "8101:8000"
+      - "127.0.0.1:8101:8000"
 
   classifier-ai:
     build:
@@ -90,7 +90,7 @@ services:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-anthropic/claude-haiku-4.5}
     ports:
-      - "8102:8000"
+      - "127.0.0.1:8102:8000"
 
   # Example parser. Disabled until FEEDS is set; copy the block for your own.
   parser-rss:
@@ -128,7 +128,7 @@ services:
     volumes:
       - time_state:/data
     ports:
-      - "8201:8000"
+      - "127.0.0.1:8201:8000"
     depends_on:
       main:
         condition: service_started
@@ -140,7 +140,7 @@ services:
     environment:
       VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
     ports:
-      - "5173:5173"
+      - "127.0.0.1:5173:5173"
     profiles: ["ui"]
 
 volumes:
