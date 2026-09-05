@@ -8,6 +8,8 @@ venv/
 build/
 *.egg-info/
 
+.claude
+
 # Node / frontend
 node_modules/
 dist/

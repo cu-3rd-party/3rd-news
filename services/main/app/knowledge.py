@@ -8,7 +8,8 @@
 * **Примеры** — как размечает человек. Берутся из ручных правок в админке:
   редактор исправил метку, и его решение уезжает следующим классификаторам.
   Это и есть обучение без обучения — чем дольше работает сервис, тем точнее
-  примеры.
+  примеры. Золотые новости (`is_gold`) в примеры не попадают — это тестовый
+  набор для измерения классификаторов.
 
 Ни то, ни другое классификатор использовать не обязан: поля в контракте
 необязательные, и сервис, который их игнорирует, остаётся совместимым.
@@ -56,6 +57,30 @@ async def set_context(session: AsyncSession, text: str) -> str:
     return text
 
 
+def examples_query(limit: int, exclude_news_id=None):
+    """Запрос за свежими ручными разметками — без золотых новостей.
+
+    Золотые новости — тестовый набор для измерения классификаторов. Попав в
+    примеры, они превратили бы тест в подсказку, и метрики стали бы врать.
+    """
+
+    query = (
+        select(News)
+        .join(NewsLabel, NewsLabel.news_id == News.id)
+        .where(NewsLabel.origin == "manual")
+        .where(News.is_gold.is_(False))
+        .options(
+            selectinload(News.labels).selectinload(NewsLabel.facet),
+            selectinload(News.labels).selectinload(NewsLabel.value),
+        )
+        .order_by(News.updated_at.desc())
+        .limit(limit)
+    )
+    if exclude_news_id is not None:
+        query = query.where(News.id != exclude_news_id)
+    return query
+
+
 async def collect_examples(
     session: AsyncSession, limit: int | None = None, exclude_news_id=None
 ) -> list[LabeledExample]:
@@ -70,19 +95,7 @@ async def collect_examples(
     if limit <= 0:
         return []
 
-    query = (
-        select(News)
-        .join(NewsLabel, NewsLabel.news_id == News.id)
-        .where(NewsLabel.origin == "manual")
-        .options(
-            selectinload(News.labels).selectinload(NewsLabel.facet),
-            selectinload(News.labels).selectinload(NewsLabel.value),
-        )
-        .order_by(News.updated_at.desc())
-        .limit(limit)
-    )
-    if exclude_news_id is not None:
-        query = query.where(News.id != exclude_news_id)
+    query = examples_query(limit, exclude_news_id)
 
     examples: list[LabeledExample] = []
     for news in (await session.execute(query)).unique().scalars().all():

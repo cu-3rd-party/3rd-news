@@ -59,7 +59,10 @@
 
 Админские (`/api/v1/admin/...`) — оси и значения, источники, API-ключи,
 реестр классификаторов, ревью новостей и ручная разметка, статистика.
-Полный список с телами запросов — в Swagger на `/docs`.
+Полный список с телами запросов — в Swagger на `/docs`. Ручную разметку
+можно выгрузить в JSONL: `GET /api/v1/admin/news/export?gold=true|false` —
+это сырьё для измерителя `tools/eval`, см.
+[tools/eval/README.md](tools/eval/README.md).
 
 ## Превью ленты
 
@@ -136,6 +139,48 @@
 [docs/guides/writing-a-classifier.md](docs/guides/writing-a-classifier.md),
 протокол целиком —
 [docs/contracts/classifier.md](docs/contracts/classifier.md).
+
+Стартовая таксономия в `bootstrap.py` — заглушка «как в брифе». Оси, выведенные
+из реального корпуса, лежат в `tools/taxonomy/taxonomy.json` и заводятся в
+админке одной командой:
+
+```bash
+python -m tools.taxonomy.apply --dry-run              # показать план
+python -m tools.taxonomy.apply --deactivate-extra     # первый раз, поверх заглушки
+python -m tools.taxonomy.apply                        # потом
+```
+
+`--deactivate-extra` гасит (`is_active: false`, без удаления) оси и значения,
+которых нет в файле. При первом применении это обязательно: стартовая
+заглушка заняла slug `audience` под ось «Формат», и без флага её значения
+останутся жить внутри «Аудитории».
+
+Скрипт идемпотентен, ничего не удаляет и заодно раскладывает значения оси
+«Направление» в `default_labels` источников: направление приходит из канала, а
+не из текста объявления, поэтому его не угадывает ни человек, ни модель. Что
+означает каждое значение и как размечать пограничные посты —
+[docs/annotation-guideline.md](docs/annotation-guideline.md).
+
+Одно и то же объявление уходит сразу в несколько каналов. Копии не
+выбрасываются — у каждой своё направление, — но размечать их руками по разу
+не нужно: скрипт собирает группы и говорит, с какого поста копировать
+содержательные метки.
+
+```bash
+python -m tools.corpus.duplicates data/raw.jsonl --out data/copies.tsv
+```
+
+Подготовка золотого набора — три скрипта поверх админского API, каждый сначала
+показывает план и меняет что-либо только с `--apply`:
+
+```bash
+python -m tools.corpus.reject_noise --apply   # реплики студентов → rejected
+python -m tools.corpus.sample                 # квота на канал, кого размечать
+python -m tools.corpus.copy_labels --apply    # разметка оригинала → на копии
+python -m tools.corpus.release_facet program # снять ручные метки с оси от источника
+python -m tools.corpus.progress              # сколько размечено и сколько осталось
+python -m tools.corpus.gold                  # кто заморожен как эталон
+```
 
 ## Запуск через Docker (рекомендуется)
 
@@ -221,6 +266,9 @@ cd admin-ui && bun install && bun run dev
   репозиторий; пользоваться им необязательно, контракт — это HTTP и JSON.
 - `admin-ui` — React SPA: ревью новостей, ручная разметка, оси, ключи,
   классификаторы.
+- `tools/eval` — измеритель классификаторов: золотой набор → метрики по
+  осям, kNN few-shot, согласие разметчиков. Ядро и база ему не нужны, см.
+  [tools/eval/README.md](tools/eval/README.md).
 - `docs` — контракты и руководства.
 
 Каждый сервис собирается своим `Dockerfile` с контекстом сборки в корне
