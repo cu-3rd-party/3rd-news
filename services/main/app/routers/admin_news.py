@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 
 from fastapi import APIRouter, HTTPException, Query
-from sqlalchemy import func, select
+from fastapi.responses import StreamingResponse
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import selectinload
 
 from .. import audit
 from ..deps import AdminPrincipal, DbSession, EditorPrincipal
+from ..export import EXPORT_STATUSES, export_record
 from ..ingest_service import enqueue_jobs, schedule_classification
 from ..labels import recompute_effective, set_manual_labels
 from ..models import Facet, News, NewsEffectiveLabel, NewsLabel, Source
 from ..schemas import (
+    GoldIn,
     LabelOpinion,
     ManualLabelsIn,
     NewsAdminDetail,
@@ -46,6 +50,7 @@ def _detail(news: News) -> NewsAdminDetail:
         extra=news.extra or {},
         manual_facets=list(news.manual_facets or []),
         classified_at=news.classified_at,
+        is_gold=bool(news.is_gold),
         attachments=[
             {
                 "id": str(item.id),
@@ -76,7 +81,11 @@ def _detail(news: News) -> NewsAdminDetail:
 
 
 def _detail_query():
-    return select(News).options(
+    # `expire_on_commit=False` (см. db.py) оставляет в сессии объект с уже
+    # неактуальными коллекциями, а `recompute_effective` меняет метки массовыми
+    # DELETE/INSERT, мимо ORM. Без `populate_existing` ответ на запись приходит
+    # со старой разметкой: «вернуть авто» отдавал снятые метки как живые.
+    return select(News).execution_options(populate_existing=True).options(
         selectinload(News.attachments),
         selectinload(News.source),
         selectinload(News.effective_labels).selectinload(NewsEffectiveLabel.facet),
@@ -104,6 +113,9 @@ async def list_news(
     unlabelled_facet: str | None = Query(
         default=None, description="Only items with no effective value for this facet"
     ),
+    gold: bool | None = Query(
+        default=None, description="Только золотые (true) или только не золотые (false)"
+    ),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> dict:
@@ -130,6 +142,9 @@ async def list_news(
         )
         query = query.where(~News.id.in_(labelled))
         count_query = count_query.where(~News.id.in_(labelled))
+    if gold is not None:
+        query = query.where(News.is_gold.is_(gold))
+        count_query = count_query.where(News.is_gold.is_(gold))
 
     total = (await session.execute(count_query)).scalar_one()
     # По дате публикации, а не получения: после первого прогона парсера у всей
@@ -138,6 +153,65 @@ async def list_news(
     query = query.order_by(ordering, News.id.desc()).limit(limit).offset(offset)
     rows = (await session.execute(query)).unique().scalars().all()
     return {"items": [_detail(item) for item in rows], "total": total}
+
+
+@router.post("/gold", summary="Пометить золотые новости пачкой")
+async def set_gold(payload: GoldIn, session: DbSession, principal: EditorPrincipal) -> dict:
+    """Золотые новости — эталон: размечены руками, исключены из примеров.
+
+    Объявлено раньше `/{news_id}`, иначе путь `gold` принял бы за id.
+    """
+
+    ids = []
+    for raw in payload.ids:
+        try:
+            ids.append(uuid.UUID(raw))
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=f"bad id {raw!r}") from exc
+
+    result = await session.execute(
+        update(News).where(News.id.in_(ids)).values(is_gold=payload.is_gold)
+    )
+    await audit.log(
+        session, principal, "gold", "news", "", {"ids": payload.ids, "is_gold": payload.is_gold}
+    )
+    await session.commit()
+    return {"updated": result.rowcount}
+
+
+@router.get("/export", summary="Ручная разметка в JSONL для измерителя")
+async def export_news(
+    session: DbSession,
+    principal: EditorPrincipal,
+    gold: bool | None = Query(default=None),
+    labelled: bool = Query(
+        default=True,
+        description="true — только с ручной разметкой (золотой набор); "
+        "false — весь корпус, чтобы читать посты и придумывать оси",
+    ),
+) -> StreamingResponse:
+    """Ручная разметка (или весь корпус) в JSONL, только ручные метки, без rejected.
+
+    Формат строки — `app.export.export_record`; читает его `tools/eval`.
+    """
+
+    del principal
+    query = (
+        _detail_query()
+        .where(News.status.in_(EXPORT_STATUSES))
+        .order_by(func.coalesce(News.published_at, News.received_at).asc(), News.id.asc())
+    )
+    if labelled:
+        query = query.where(func.cardinality(News.manual_facets) > 0)
+    if gold is not None:
+        query = query.where(News.is_gold.is_(gold))
+    rows = (await session.execute(query)).unique().scalars().all()
+
+    async def lines():
+        for news in rows:
+            yield json.dumps(export_record(news), ensure_ascii=False) + "\n"
+
+    return StreamingResponse(lines(), media_type="application/x-ndjson")
 
 
 @router.get("/{news_id}", response_model=NewsAdminDetail)

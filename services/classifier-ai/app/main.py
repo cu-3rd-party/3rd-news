@@ -195,9 +195,12 @@ def _valid_labels(request: ClassifyRequest, raw: dict) -> list[ProposedLabel]:
     return labels
 
 
-async def classify(request: ClassifyRequest) -> list[ProposedLabel]:
-    if not API_KEY:
-        raise RuntimeError("OPENROUTER_API_KEY is not set")
+def build_payload(request: ClassifyRequest) -> dict:
+    """Тело запроса к OpenRouter — целиком и детерминированно.
+
+    Вынесено отдельно, чтобы измеритель (`tools/eval`) мог посчитать хэш
+    промпта и не платить дважды за один и тот же вопрос.
+    """
 
     config = request.options.config or {}
     model = config.get("model") or DEFAULT_MODEL
@@ -215,7 +218,7 @@ async def classify(request: ClassifyRequest) -> list[ProposedLabel]:
         if part and part.strip()
     ).strip()
 
-    payload = {
+    return {
         "model": model,
         "temperature": config.get("temperature", 0.0),
         "response_format": {"type": "json_object"},
@@ -230,6 +233,13 @@ async def classify(request: ClassifyRequest) -> list[ProposedLabel]:
             {"role": "user", "content": user_prompt},
         ],
     }
+
+
+async def call_openrouter(payload: dict) -> dict:
+    """Один HTTP-вызов, тело ответа как есть — со `usage`, ошибками и прочим."""
+
+    if not API_KEY:
+        raise RuntimeError("OPENROUTER_API_KEY is not set")
     headers = {
         "Authorization": f"Bearer {API_KEY}",
         "Content-Type": "application/json",
@@ -237,13 +247,23 @@ async def classify(request: ClassifyRequest) -> list[ProposedLabel]:
         "HTTP-Referer": os.getenv("OPENROUTER_REFERER", "https://github.com/3rd-news"),
         "X-Title": "3rd-news classifier",
     }
-
     async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as http:
         response = await http.post(API_URL, json=payload, headers=headers)
         response.raise_for_status()
-        body = response.json()
+        return response.json()
 
+
+def parse_response(request: ClassifyRequest, body: dict) -> list[ProposedLabel]:
+    """Из тела ответа — только метки, существующие в присланной таксономии."""
+
+    model = (request.options.config or {}).get("model") or DEFAULT_MODEL
     return _valid_labels(request, _extract_json(_content_of(body, model)))
+
+
+async def classify(request: ClassifyRequest) -> list[ProposedLabel]:
+    payload = build_payload(request)
+    body = await call_openrouter(payload)
+    return parse_response(request, body)
 
 
 app = build_classifier_app(

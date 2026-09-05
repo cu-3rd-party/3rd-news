@@ -132,6 +132,26 @@ th { color: var(--muted); font-weight: 500; }
 .facets { display: flex; flex-direction: column; gap: 0.4rem; }
 .facet { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; }
 .facet-title { min-width: 9rem; color: var(--muted); }
+
+/* Клавиатурная разметка: видно, какой пост и какая ось сейчас принимают
+   нажатия, иначе цифры улетают вслепую. */
+.news.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15); }
+.facet.active { background: #eef2ff; border-radius: 6px; padding: 0.15rem 0.3rem; margin: -0.15rem -0.3rem; }
+.facet.active .facet-title { color: var(--accent); font-weight: 600; }
+.facet.active .chip b { color: var(--accent); font-variant-numeric: tabular-nums; }
+/* На выбранной кнопке фон синий — подсказка того же цвета была бы невидимой. */
+.facet.active .chip.on b { color: #fff; }
+/* Предложение классификатора: видно значение, но видно и что оно не подтверждено. */
+.chip.suggested { border-color: var(--accent); border-style: dashed; color: var(--accent); }
+.facet.from-source { color: var(--muted); }
+.help {
+  background: #eef2ff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+}
+.help p { margin: 0.2rem 0; }
+.help code { background: #fff; padding: 0.05rem 0.35rem; border-radius: 4px; }
 .opinions { margin-top: 0.6rem; }
 .opinions ul { margin: 0.4rem 0 0; padding-left: 1.2rem; }
 .probe { background: #f1f5f9; padding: 0.5rem; border-radius: 6px; overflow: auto; }
@@ -152,3 +172,5 @@ th { color: var(--muted); font-weight: 500; }
 .login label { display: flex; flex-direction: column; gap: 0.25rem; }
 
 .ok { color: #15803d; }
+
+.badge.gold { background: #fde68a; }

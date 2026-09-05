@@ -251,3 +251,41 @@ def test_contract_keeps_both_fields_optional():
     )
     assert plain.context is None
     assert plain.examples == []
+
+
+# --------------------------------------------------------------------------- #
+# Разбиение на сборку запроса / вызов / разбор — для измерителя tools/eval
+# --------------------------------------------------------------------------- #
+
+
+def test_build_payload_is_deterministic_and_complete():
+    payload = ai_classifier.build_payload(request())
+    assert payload["model"] == ai_classifier.DEFAULT_MODEL
+    assert payload["temperature"] == 0.0
+    assert payload["response_format"] == {"type": "json_object"}
+    assert [m["role"] for m in payload["messages"]] == ["system", "user"]
+    assert "Новость:" in payload["messages"][1]["content"]
+    assert ai_classifier.build_payload(request()) == payload
+
+
+def test_build_payload_honours_registration_config():
+    req = request()
+    req.options.config = {
+        "model": "openai/gpt-4o-mini",
+        "temperature": 0.3,
+        "instructions": "Будь краток.",
+    }
+    payload = ai_classifier.build_payload(req)
+    assert payload["model"] == "openai/gpt-4o-mini"
+    assert payload["temperature"] == 0.3
+    assert "Будь краток." in payload["messages"][1]["content"]
+
+
+def test_parse_response_filters_by_taxonomy():
+    content = (
+        '{"labels": [{"facet": "importance", "value": "high", "confidence": 0.9},'
+        ' {"facet": "importance", "value": "nope", "confidence": 0.9}]}'
+    )
+    body = {"choices": [{"message": {"content": content}}]}
+    labels = ai_classifier.parse_response(request(), body)
+    assert [(label.facet, label.value) for label in labels] == [("importance", "high")]

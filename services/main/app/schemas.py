@@ -231,6 +231,8 @@ class NewsAdminDetail(BaseModel):
     extra: dict
     manual_facets: list[str]
     classified_at: datetime | None
+    #: Эталонная новость для измерения классификаторов; в примеры не идёт.
+    is_gold: bool = False
     attachments: list[dict]
     effective: dict[str, list[str]]
     opinions: list[LabelOpinion]
@@ -259,6 +261,17 @@ class NewsEditIn(BaseModel):
     source_text: str | None = None
     published_at: datetime | None = None
     lang: str | None = None
+
+
+class GoldIn(BaseModel):
+    """Пометить (или снять пометку) сразу с пачки новостей.
+
+    Список, а не одна новость: золотой набор выбирается разом, после
+    разметки, и кликать 100 раз в админке никто не будет.
+    """
+
+    ids: list[str] = Field(min_length=1, max_length=1000)
+    is_gold: bool = True
 
 
 class UserIn(BaseModel):

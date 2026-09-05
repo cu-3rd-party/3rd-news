@@ -224,6 +224,10 @@ class News(TimestampMixin, Base):
     manual_facets: Mapped[list[str]] = mapped_column(
         ARRAY(String(120)), default=list, nullable=False
     )
+    #: Золотая новость — эталон для измерения качества классификаторов.
+    #: Размечена руками, но никогда не отдаётся классификаторам как пример,
+    #: иначе тест утёк бы в подсказку. См. knowledge.collect_examples.
+    is_gold: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     source: Mapped[Source | None] = relationship()
     attachments: Mapped[list["Attachment"]] = relationship(

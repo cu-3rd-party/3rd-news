@@ -117,6 +117,8 @@ export interface NewsItem {
   extra: Record<string, unknown>;
   manual_facets: string[];
   classified_at: string | null;
+  /** Эталон для измерителя классификаторов; в примеры модели не идёт. */
+  is_gold: boolean;
   attachments: NewsAttachment[];
   effective: Record<string, string[]>;
   opinions: LabelOpinion[];
@@ -211,6 +213,8 @@ export const api = {
   setStatus: (id: string, status: string) =>
     post<NewsItem>(`/api/v1/admin/news/${id}/status`, { status }),
   reclassify: (id: string) => post<NewsItem>(`/api/v1/admin/news/${id}/reclassify`),
+  setGold: (ids: string[], isGold: boolean) =>
+    post<{ updated: number }>("/api/v1/admin/news/gold", { ids, is_gold: isGold }),
   deleteNews: (id: string) => del(`/api/v1/admin/news/${id}`),
 
   sources: () => get<Source[]>("/api/v1/admin/sources"),

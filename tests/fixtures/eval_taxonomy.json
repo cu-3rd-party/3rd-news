@@ -1,0 +1,19 @@
+[
+  {
+    "id": "f1", "slug": "importance", "title": "Важность", "type": "single",
+    "required": false, "is_active": true, "position": 0,
+    "ai_hint": "Насколько срочно студенту это прочитать.",
+    "values": [
+      {"id": "v1", "slug": "critical", "title": "Очень важно", "synonyms": ["срочно", "дедлайн"], "match_patterns": [], "is_active": true, "position": 0},
+      {"id": "v2", "slug": "normal", "title": "Обычно", "synonyms": [], "match_patterns": [], "is_active": true, "position": 1}
+    ]
+  },
+  {
+    "id": "f2", "slug": "stream", "title": "Поток", "type": "multi",
+    "required": false, "is_active": true, "position": 1,
+    "values": [
+      {"id": "v3", "slug": "2025", "title": "2025", "synonyms": ["второй курс"], "match_patterns": [], "is_active": true, "position": 0},
+      {"id": "v4", "slug": "2026", "title": "2026", "synonyms": ["первый курс", "первокурсник"], "match_patterns": [], "is_active": true, "position": 1}
+    ]
+  }
+]
