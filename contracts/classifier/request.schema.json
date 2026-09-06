@@ -1,0 +1,522 @@
+{
+  "$defs": {
+    "CallbackSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "title": "Url",
+          "type": "string"
+        },
+        "deadline_at": {
+          "format": "date-time",
+          "title": "Deadline At",
+          "type": "string"
+        },
+        "audience": {
+          "title": "Audience",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "deadline_at",
+        "audience"
+      ],
+      "title": "CallbackSpec",
+      "type": "object"
+    },
+    "ClassifyAttachment": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "media_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Media Id"
+        },
+        "mime": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mime"
+        },
+        "filename": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Filename"
+        },
+        "caption": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Caption"
+        },
+        "extracted_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extracted Text"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "ClassifyAttachment",
+      "type": "object"
+    },
+    "ClassifyNews": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "body_md": {
+          "title": "Body Md",
+          "type": "string"
+        },
+        "source_link": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Link"
+        },
+        "source_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Text"
+        },
+        "published_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Published At"
+        },
+        "received_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Received At"
+        },
+        "lang": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lang"
+        },
+        "attachments": {
+          "items": {
+            "$ref": "#/$defs/ClassifyAttachment"
+          },
+          "title": "Attachments",
+          "type": "array"
+        },
+        "extra": {
+          "additionalProperties": true,
+          "title": "Extra",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "body_md"
+      ],
+      "title": "ClassifyNews",
+      "type": "object"
+    },
+    "ClassifyOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_axes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Axes",
+          "type": "array"
+        },
+        "min_confidence": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Min Confidence",
+          "type": "number"
+        },
+        "config": {
+          "additionalProperties": true,
+          "title": "Config",
+          "type": "object"
+        },
+        "callback": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CallbackSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "ClassifyOptions",
+      "type": "object"
+    },
+    "FacetSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "slug": {
+          "title": "Slug",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "ai_hint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ai Hint"
+        },
+        "type": {
+          "$ref": "#/$defs/FacetType",
+          "default": "single"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "position": {
+          "default": 0,
+          "title": "Position",
+          "type": "integer"
+        },
+        "values": {
+          "items": {
+            "$ref": "#/$defs/FacetValueSchema"
+          },
+          "title": "Values",
+          "type": "array"
+        }
+      },
+      "required": [
+        "slug",
+        "title"
+      ],
+      "title": "FacetSchema",
+      "type": "object"
+    },
+    "FacetType": {
+      "description": "How many values of one facet a single news item may carry.",
+      "enum": [
+        "single",
+        "multi"
+      ],
+      "title": "FacetType",
+      "type": "string"
+    },
+    "FacetValueSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "slug": {
+          "title": "Slug",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "ai_hint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ai Hint"
+        },
+        "synonyms": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Synonyms",
+          "type": "array"
+        },
+        "match_patterns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Match Patterns",
+          "type": "array"
+        },
+        "position": {
+          "default": 0,
+          "title": "Position",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "slug",
+        "title"
+      ],
+      "title": "FacetValueSchema",
+      "type": "object"
+    },
+    "LabeledExample": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "body_md": {
+          "title": "Body Md",
+          "type": "string"
+        },
+        "labels": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Labels",
+          "type": "object"
+        },
+        "is_gold": {
+          "const": false,
+          "default": false,
+          "title": "Is Gold",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "body_md"
+      ],
+      "title": "LabeledExample",
+      "type": "object"
+    },
+    "Taxonomy": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "facets": {
+          "items": {
+            "$ref": "#/$defs/FacetSchema"
+          },
+          "title": "Facets",
+          "type": "array"
+        }
+      },
+      "required": [
+        "version"
+      ],
+      "title": "Taxonomy",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "2.0",
+      "default": "2.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "request_id": {
+      "title": "Request Id",
+      "type": "string"
+    },
+    "job_id": {
+      "title": "Job Id",
+      "type": "string"
+    },
+    "attempt_id": {
+      "title": "Attempt Id",
+      "type": "string"
+    },
+    "news": {
+      "$ref": "#/$defs/ClassifyNews"
+    },
+    "taxonomy": {
+      "$ref": "#/$defs/Taxonomy"
+    },
+    "options": {
+      "$ref": "#/$defs/ClassifyOptions"
+    },
+    "context": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Context"
+    },
+    "examples": {
+      "items": {
+        "$ref": "#/$defs/LabeledExample"
+      },
+      "title": "Examples",
+      "type": "array"
+    }
+  },
+  "required": [
+    "request_id",
+    "job_id",
+    "attempt_id",
+    "news",
+    "taxonomy"
+  ],
+  "title": "ClassifyRequest",
+  "type": "object"
+}

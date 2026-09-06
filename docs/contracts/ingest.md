@@ -1,116 +1,53 @@
-# Контракт приёма новостей
+# Ingest v2
 
-Это всё, что нужно знать, чтобы написать парсер. Реализация парсера может быть
-на любом языке — здесь описан чистый HTTP.
+`CONTRACT_VERSION=2.0`. Парсер зависит только от `thirdnews_contracts` или от
+JSON Schema в `contracts/http/`.
 
-## Ручка
+`POST /api/v1/news` принимает `NewsSubmission` и при фиксации оригинала и
+outbox отвечает `202 IngestResult`. Идентичность задаётся парой `source` +
+`external_id` либо `idempotency_key`. Повтор идентичного payload возвращает
+прежний `submission_id` со статусом `duplicate`; иной payload с тем же ключом
+даёт `409`. Совпадение текста не является дедупликацией.
+Для одиночного запроса `idempotency_key` также можно передать только заголовком
+`Idempotency-Key`. Обработчик объединяет transport-заголовок с телом до
+валидации и вычисления payload digest, поэтому один и тот же ключ в заголовке
+или поле тела имеет одинаковую семантику. Разные значения дают `409`.
 
-```
-POST /api/v1/ingest/news
-X-API-Key: tnk_...
-Content-Type: application/json
-```
+`POST /api/v1/news/batch` принимает `{"items": [...]}` (1–200) и отвечает 202.
+Каждый `BatchItemResult` имеет индекс и собственный статус `accepted`,
+`duplicate`, `conflict` или `rejected`; ошибка элемента не откатывает успешные
+элементы. Python alias `BatchSubmission = NewsSubmission | dict[str, Any]`
+намеренно сохраняет сырой object: обработчик валидирует каждый member отдельно,
+поэтому один повреждённый member не превращает весь batch в HTTP 422.
+Строковые поля, ключи и значения вложенных JSON-объектов не принимают NUL и
+другие управляющие символы Unicode, кроме структурных `TAB`, `LF` и `CR`.
+Обычный многострочный Markdown поэтому сохраняется, а payload, который
+PostgreSQL/JSONB не может безопасно записать или который способен подделать
+строку журнала, отклоняется на границе контракта.
 
-Ключ выпускается в админке с правом `ingest`. Если ключ привязан к источнику,
-`source_key` можно не передавать.
+Закрытый файл проходит три шага: `POST /api/v1/uploads/presign` с именем,
+content type, размером и SHA-256; PUT точных байтов по выданному URL и с
+выданными заголовками; `POST /api/v1/uploads/complete`. Submission ссылается на
+завершённый intent через `upload_intent_id`. Сервер повторно проверяет объект,
+размер и digest, затем закрепляет неизменяемый объект.
 
-## Тело запроса
+API key передаётся как `X-API-Key: ...`. `Authorization: Bearer` зарезервирован
+для подписанных Ed25519 JWT между сервисными узлами. Постоянный ключ не
+передаётся в URL.
 
-```jsonc
-{
-  // Стабильный идентификатор поста внутри источника: id сообщения, guid, ссылка.
-  // Вместе с source_key делает приём идемпотентным.
-  "external_id": "12345",
+Machine schemas and the complete HTTP OpenAPI are exported with
+`uv run --project tools --locked contracts-export`.
+`make contracts` and `just contracts` compare those files with the current typed models
+without changing files; CI performs the same drift check.
 
-  // Slug источника в админке. Если такого нет — он создастся автоматически.
-  "source_key": "tg-dekanat-fkn",
 
-  "title": "Заголовок (необязательно)",
+Unused upload reservations are limited per authenticated owner to 20 intents and
+200 MB in total. Expired pending uploads are collected; completed but unconsumed
+uploads expire after seven days. Attached objects remain protected by their DB
+ownership, including archived news. A periodic collector removes old unreferenced
+objects after a 24-hour grace period, covering crashes and fenced worker attempts.
+The collector runs in the pipeline role and retries storage failures.
 
-  // Текст в Markdown. Длина не ограничивается сервисом.
-  "body_md": "Полный текст новости в **markdown**...",
-
-  // Ссылка на оригинал...
-  "source_link": "https://t.me/dekanat_fkn/12345",
-  // ...или, если ссылки нет, человекочитаемое название канала.
-  "source_text": "Деканат ФКН, Telegram",
-
-  // Время публикации в источнике. Время прихода в сервис проставляется сам.
-  "published_at": "2026-09-01T10:30:00+03:00",
-
-  "lang": "ru",
-
-  "attachments": [
-    { "kind": "image", "url": "https://.../poster.jpg", "caption": "Афиша" },
-    { "kind": "pdf",   "url": "https://.../schedule.pdf", "filename": "schedule.pdf" }
-  ],
-
-  // Метки, в которых парсер уверен. Всё остальное решают классификаторы и
-  // редакторы. Формат: {"slug-оси": ["slug-значения", ...]}
-  "labels": { "stream": ["2025"] },
-
-  // Произвольные данные парсера, сервис их не трогает.
-  "extra": { "views": 1200 }
-}
-```
-
-Обязательно только `body_md` плюс хотя бы одно из `source_link`, `source_text`,
-`source_key`. `kind` вложения — `image` | `pdf` | `video` | `audio` | `file`.
-
-## Ответ
-
-```json
-{ "id": "9a1f...", "status": "created", "received_at": "2026-09-01T07:31:02Z" }
-```
-
-`status` — `created` или `duplicate`. **Дубликат не ошибка**: перечитывайте
-ленту с начала сколько угодно, состояние хранить не нужно.
-
-## Загрузка файлов напрямую
-
-Если файл нельзя отдать ссылкой (например, он лежит только в Telegram),
-отправьте `multipart/form-data`: поле `payload` — тот же JSON, остальные поля —
-файлы, а во вложении вместо `url` укажите `upload_name` с именем поля.
-
-```
-POST /api/v1/ingest/news
-Content-Type: multipart/form-data
-
-payload = {"body_md":"...","source_text":"...",
-           "attachments":[{"kind":"image","upload_name":"cover"}]}
-cover   = <бинарные данные>
-```
-
-Ограничение размера — `NEWS_MAX_ATTACHMENT_BYTES` (по умолчанию 512 МиБ).
-Вложения по URL скачиваются воркером асинхронно, поэтому в первые секунды
-`attachment.status` будет `pending`.
-
-## Пакетная отправка
-
-```
-POST /api/v1/ingest/news/batch
-{ "items": [ {...}, {...} ] }   →   { "results": [ {...}, {...} ] }
-```
-
-До 200 новостей за раз, только вложения по URL. Дубликаты отмечаются
-по-элементно и не роняют пакет.
-
-## Ошибки
-
-| Код | Что значит |
-| --- | --- |
-| 401 | ключа нет, он неверный, отозван или просрочен |
-| 403 | у ключа нет права `ingest` |
-| 413 | вложение больше лимита |
-| 422 | тело не проходит валидацию (в `detail` — список полей) |
-
-## Готовый клиент
-
-```python
-from thirdnews_contracts import IngestClient, NewsSubmission
-
-client = IngestClient("https://news.example.edu", api_key="tnk_...")
-client.submit(NewsSubmission(body_md="...", source_text="Деканат", external_id="1"))
-```
-
-См. также [руководство по написанию парсера](../guides/writing-a-parser.md).
+Production requires `FILE_PUBLIC_SCHEME=https` with a public `FILE_PUBLIC_HOST`; the production Compose
+overlay derives it from the separate `UPLOAD_ADDRESS` DNS name. A random 32-byte
+base64 raw-audit encryption key is mandatory in production for API and workers.

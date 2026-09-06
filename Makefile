@@ -1,22 +1,31 @@
-.PHONY: up down logs migrate shell seed test fmt
-
-up:            ## start postgres, redis, main, worker and both classifiers
+.PHONY: sync test lint fmt integration mutation audit sql clean up down logs migrate web reindex pipeline-load
+sync test lint fmt integration mutation audit sql:
+	uv run --project tools --locked --all-groups quality-$(@:fmt=format)
+clean:
+	uv run --project tools --locked project-clean
+up:
 	docker compose up -d --build
-
 down:
 	docker compose down
-
 logs:
-	docker compose logs -f main worker
+	docker compose logs -f api worker-outbox worker-pipeline worker-index
+migrate:
+	docker compose run --rm migrate
+web:
+	cd apps/web && bun install --frozen-lockfile && bun run test && bun run build
 
-migrate:       ## apply migrations without restarting the API
-	docker compose exec main alembic upgrade head
+.PHONY: contracts contracts-export
+contracts:
+	uv run --project tools --locked contracts-check
+contracts-export:
+	uv run --project tools --locked contracts-export
 
-revision:      ## autogenerate a migration: make revision m="add x"
-	docker compose exec main alembic revision --autogenerate -m "$(m)"
-
-shell:
-	docker compose exec main python
-
-register-classifiers: ## register the bundled classifiers in a fresh install
-	./scripts/register_classifiers.sh
+.PHONY: live-integration compose-smoke
+live-integration:
+	@for script in live_nats_smoke live_nats_dlq_smoke live_garage_smoke live_meili_smoke live_ingest_client_smoke; do docker compose exec -T api python - < services/main/test/$$script.py || exit $$?; done
+compose-smoke:
+	uv run --project tools --locked compose-smoke
+reindex:
+	docker compose exec -T api python - < tools/ops/reindex.py
+pipeline-load:
+	uv run --project tools --locked pipeline-load

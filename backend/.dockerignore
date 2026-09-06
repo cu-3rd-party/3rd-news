@@ -1,0 +1,12 @@
+.DS_Store
+.env
+.git
+.mypy_cache
+.pytest_cache
+.python-version
+.ruff_cache
+.venv
+__pycache__
+*.py[cod]
+Dockerfile
+tests

@@ -1,0 +1,245 @@
+{
+  "$defs": {
+    "AttachmentInput": {
+      "additionalProperties": false,
+      "description": "Remote attachment or an already-created upload intent.",
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/AttachmentKind",
+          "default": "file"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        },
+        "upload_intent_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Upload Intent Id"
+        },
+        "filename": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Filename"
+        },
+        "mime": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mime"
+        },
+        "caption": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Caption"
+        },
+        "position": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Position",
+          "type": "integer"
+        }
+      },
+      "title": "AttachmentInput",
+      "type": "object"
+    },
+    "AttachmentKind": {
+      "enum": [
+        "image",
+        "pdf",
+        "video",
+        "audio",
+        "file"
+      ],
+      "title": "AttachmentKind",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Immutable source material submitted by an external parser.",
+  "properties": {
+    "source": {
+      "anyOf": [
+        {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source"
+    },
+    "external_id": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "External Id"
+    },
+    "idempotency_key": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Idempotency Key"
+    },
+    "title": {
+      "anyOf": [
+        {
+          "maxLength": 1000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Title"
+    },
+    "body_md": {
+      "maxLength": 2000000,
+      "title": "Body Md",
+      "type": "string"
+    },
+    "source_link": {
+      "anyOf": [
+        {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Link"
+    },
+    "source_text": {
+      "anyOf": [
+        {
+          "maxLength": 1000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Text"
+    },
+    "published_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Published At"
+    },
+    "lang": {
+      "anyOf": [
+        {
+          "maxLength": 35,
+          "minLength": 2,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Lang"
+    },
+    "attachments": {
+      "items": {
+        "$ref": "#/$defs/AttachmentInput"
+      },
+      "maxItems": 100,
+      "title": "Attachments",
+      "type": "array"
+    },
+    "extra": {
+      "additionalProperties": true,
+      "title": "Extra",
+      "type": "object"
+    },
+    "labels": {
+      "additionalProperties": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "title": "Labels",
+      "type": "object"
+    }
+  },
+  "required": [
+    "body_md"
+  ],
+  "title": "NewsSubmission",
+  "type": "object"
+}

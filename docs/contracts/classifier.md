@@ -1,190 +1,43 @@
-# Контракт классификатора
+# Classifier protocol v2
 
-Классификатор — это HTTP-сервер с двумя ручками. Больше от него ничего не
-требуется: ни общей БД, ни общего кода, ни того же языка.
+Узел предоставляет `GET /manifest`, `GET /health/healthz`,
+`GET /health/startup`, `GET /health/ready` и `POST /classify`.
 
-```
-GET  /manifest   → кто ты и что умеешь
-POST /classify   → вот новость и таксономия, верни метки
-```
+`ClassifyRequest` связывает `request_id`, `job_id`, `attempt_id`, id и версию
+новости, версию taxonomy и `options.allowed_axes`. Узел возвращает только
+значения из присланной taxonomy и только для разрешённых осей. Gold-пример не
+может попасть в `examples`: модель `LabeledExample` допускает лишь
+`is_gold=false`.
 
-Регистрируется в админке (`/api/v1/admin/classifiers`) с базовым URL и общим
-секретом. Главный сервис сам зовёт его для каждой новости.
+`examples` по умолчанию выключены. При явном включении главный сервис выбирает
+ограниченное число опубликованных non-gold новостей с актуальным ручным
+решением, включая значимую пустую разметку. Текущая новость и любые новости,
+связанные с источником `skip_classification=true`, исключаются запросом к БД.
+Классификатор получает только разрешённые ему и включённые оси/значения.
 
-## `GET /manifest`
+Синхронный узел отвечает 200 `ClassifyResponse`. Узел с
+`supports_async=true` может ответить 202, после чего отправляет тот же результат
+на подписанный `options.callback.url` не позже `deadline_at`. Callback после
+deadline игнорируется. `job_id`, `attempt_id`, `news_id` и `news_version`
+защищают актуальную попытку от позднего результата.
 
-```json
-{
-  "slug": "my-classifier",
-  "name": "Мой классификатор",
-  "version": "0.1.0",
-  "contract_version": "1.0",
-  "facets": ["*"],
-  "supports_async": false,
-  "description": "..."
-}
-```
+`ClassifyResponse.status` имеет ровно два состояния. `completed` не содержит
+`error` и может содержать labels. `failed` обязательно содержит структурированный
+`error` (`code`, безопасное `message`, `retryable`) и никогда не содержит labels.
+Транспортная или протокольная ошибка provider возвращается как `failed`, даже
+если синхронный HTTP-ответ узла имеет статус 200. Получатель обязан считать такой
+результат неуспешной попыткой, применить retry policy и не применять opinions.
 
-`facets` — оси, которые сервис умеет размечать, или `["*"]` для «любые, что
-пришлют». Кнопка «Проверить связь» в админке дёргает именно эту ручку.
+`ProposedLabel` содержит `axis`, `value`, confidence 0–1, reason и evidence.
+AI-узел также возвращает `AITrace`: provider/model/parameters, версии prompt,
+schema и taxonomy, исходный provider request, сырой response, длительность и
+диагностическую ошибку. Поле `trace.error` предназначено только для аудита;
+машинный исход определяется `status` и `error`. Главный сервис шифрует raw
+payload и удаляет его через 30 дней.
 
-## `POST /classify`
-
-Запрос:
-
-```jsonc
-{
-  "request_id": "uuid задачи — верните его же в ответе",
-  "news": {
-    "id": "uuid",
-    "title": "…",
-    "body_md": "…",
-    "source_link": "…",
-    "source_text": "…",
-    "published_at": "2026-09-01T10:30:00Z",
-    "received_at":  "2026-09-01T10:31:02Z",
-    "lang": "ru",
-    "attachments": [{ "kind": "image", "url": "…", "mime": "image/jpeg" }],
-    "extra": {}
-  },
-
-  // Актуальная таксономия. Она приходит в КАЖДОМ запросе — не кэшируйте её
-  // надолго и не хардкодьте slug'и: админ добавляет оси на ходу.
-  "taxonomy": {
-    "facets": [
-      {
-        "slug": "importance",
-        "title": "Важность",
-        "description": null,
-        "ai_hint": "Насколько новость важна для среднего студента.",
-        "type": "single",          // single | multi
-        "required": false,
-        "values": [
-          {
-            "slug": "critical",
-            "title": "Очень важно",
-            "ai_hint": "дедлайны, отчисления, обязательные действия",
-            "synonyms": ["дедлайн", "срочно"],
-            "match_patterns": ["\\bдо \\d{1,2} \\w+\\b"]
-          }
-        ]
-      }
-    ]
-  },
-
-  // Что нужно знать об организации, чтобы понимать эти тексты: расшифровки
-  // сокращений, названия потоков, кто такие кураторы. Редактор пишет это
-  // один раз в админке, приходит в каждом запросе. Может отсутствовать.
-  "context": "ВКР — выпускная квалификационная работа. Потоки набора 2026-2030…",
-
-  // Примеры того, как эти же оси размечал человек. Берутся из ручных правок
-  // в админке: редактор поправил метку — его решение уехало сюда. Пустой
-  // список, пока правок не было.
-  "examples": [
-    {
-      "title": "Семинар ВКР: лаборатория AIDA",
-      "body_md": "20 марта в 18:00 в аудитории F304…",
-      "labels": {"topic": ["science"], "importance": ["worth"]}
-    }
-  ],
-
-  "options": {
-    "facets": [],            // если не пусто — отвечайте только по этим осям
-    "min_confidence": 0.6,   // ниже этого ответ всё равно отбросят
-    "config": {},            // произвольные настройки из админки (модель, промпт…)
-    "callback_url": "https://news.example.edu/api/v1/classification/callback"
-  }
-}
-```
-
-Ответ:
-
-```json
-{
-  "request_id": "тот же uuid",
-  "classifier": "my-classifier",
-  "labels": [
-    { "facet": "importance", "value": "critical", "confidence": 0.9,
-      "reason": "упомянут дедлайн" }
-  ],
-  "skipped": ["stream"],
-  "meta": {}
-}
-```
-
-`context` и `examples` — необязательные. Классификатор вправе их
-игнорировать и остаётся совместимым; но если вы строите промпт для LLM,
-именно они дают самый заметный прирост точности: без них модель не знает, что
-«поток Восток» — это параллель, а не сторона света, и размечает по своим
-представлениям вместо ваших.
-
-Правила:
-
-* `facet` и `value` — только slug'и из присланной таксономии. Выдуманные метки
-  главный сервис молча отбрасывает.
-* Для оси `single` вернуть больше одного значения — можно, но применится одно.
-* `confidence` — честная уверенность от 0 до 1. От неё зависит, применится метка
-  или останется предложением: см. `min_confidence` и `auto_apply` в реестре.
-* `reason` попадает в админку и очень помогает при разборе спорных случаев.
-* Ось, про которую вы не уверены, лучше не включать вовсе.
-
-## Подпись запросов
-
-Если у регистрации задан секрет, каждый запрос подписывается:
-
-```
-X-3rdnews-Timestamp: 1772534400
-X-3rdnews-Signature: sha256=<hex>
-```
-
-где `hex = HMAC_SHA256(secret, f"{timestamp}.{raw_body}")`. Проверяйте подпись и
-свежесть метки времени (окно — 5 минут). В Python это одна строка:
-
-```python
-from thirdnews_contracts import verify_signature
-verify_signature(SECRET, raw_body, signature_header, timestamp_header)
-```
-
-## Медленные классификаторы
-
-Если ответ не укладывается в таймаут (LLM, своя очередь), верните `202 Accepted`
-с пустым телом, а результат позже отправьте на `options.callback_url`:
-
-```
-POST /api/v1/classification/callback
-X-3rdnews-Timestamp / X-3rdnews-Signature — та же подпись, тот же секрет
-
-{ "request_id": "…", "classifier": "my-classifier",
-  "labels": [...], "error": null, "meta": {} }
-```
-
-Поле `error` вместо меток означает «не смог» — задача закроется, и новость не
-будет ждать вас вечно. Укажите `"supports_async": true` в манифесте.
-
-## Скелет на Python
-
-```python
-from thirdnews_contracts import ClassifyRequest, ProposedLabel
-from thirdnews_contracts.worker import build_classifier_app
-
-def classify(request: ClassifyRequest) -> list[ProposedLabel]:
-    labels = []
-    for facet in request.taxonomy.facets:
-        ...
-    return labels
-
-app = build_classifier_app(
-    slug="my-classifier", name="Мой классификатор",
-    classify=classify, secret=os.getenv("CLASSIFIER_SECRET"),
-)
-```
-
-`build_classifier_app` сам поднимает `/health`, `/manifest`, `/classify` и
-проверяет подпись. Пользоваться им необязательно — это просто удобная обёртка.
-
-Рабочие примеры: [`services/classifier-regex`](../../services/classifier-regex/app/main.py)
-(без состояния, правила из админки) и
-[`services/classifier-ai`](../../services/classifier-ai/app/main.py) (LLM через
-OpenRouter, промпт собирается из таксономии).
-
-См. также [руководство](../guides/writing-a-classifier.md).
+Каждый запрос подписан compact JWT в `Authorization: Bearer`. Разрешён только
+`alg=Ed25519`. Claims: `iss`, `aud`, `iat`, `exp`, `jti`, `job_id`,
+`attempt_id`, `node_id`, `body_sha256`. Максимальная жизнь 300 секунд.
+Получатель проверяет issuer, audience, срок, exact body digest, назначенный
+node и одноразовость jti. Callback подписывается отдельным private key узла;
+main проверяет зарегистрированный public key.

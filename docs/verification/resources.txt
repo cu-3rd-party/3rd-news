@@ -1,0 +1,17 @@
+thirdnews-v2-worker-pipeline-3 6.83% 95.78MiB / 7.817GiB
+thirdnews-v2-worker-pipeline-2 3.56% 86.81MiB / 7.817GiB
+thirdnews-v2-worker-pipeline-4 3.00% 85.67MiB / 7.817GiB
+thirdnews-v2-worker-outbox-1 1.58% 85.45MiB / 7.817GiB
+thirdnews-v2-worker-index-1 0.53% 83.93MiB / 7.817GiB
+thirdnews-v2-worker-pipeline-1 7.71% 85.9MiB / 7.817GiB
+thirdnews-v2-api-1 0.00% 181.8MiB / 7.817GiB
+thirdnews-v2-classifier-regex-1 0.00% 98.82MiB / 7.817GiB
+thirdnews-v2-classifier-ai-1 0.00% 101.1MiB / 7.817GiB
+thirdnews-qa-postgres 0.00% 29.16MiB / 7.817GiB
+thirdnews-v2-web-1 0.00% 10.44MiB / 7.817GiB
+thirdnews-v2-proxy-1 0.00% 12.31MiB / 7.817GiB
+thirdnews-v2-ollama-1 0.00% 16.56MiB / 7.817GiB
+thirdnews-v2-db-1 5.54% 110.4MiB / 7.817GiB
+thirdnews-v2-broker-1 0.37% 17.28MiB / 7.817GiB
+thirdnews-v2-search-1 0.16% 69.71MiB / 7.817GiB
+thirdnews-v2-file-1 1.75% 16.23MiB / 7.817GiB

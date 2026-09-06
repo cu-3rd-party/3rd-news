@@ -1,7 +1,7 @@
 # Инструкция по ручной разметке новостей
 
 Эта инструкция — единственный источник правды для разметчика. Оси и значения
-заведены в админке из `tools/taxonomy/taxonomy.json`; здесь — что каждое
+заведены в админке из `tools/lib/infra/storage/taxonomy.json`; здесь — что каждое
 значение означает и как решать пограничные случаи.
 
 Все примеры перефразированы: это не тексты реальных объявлений, а типовые
@@ -32,8 +32,8 @@
   Группы и соответствие «копия → откуда копировать» даёт скрипт:
 
   ```bash
-  python -m tools.corpus.duplicates data/raw.jsonl --report   # посмотреть группы
-  python -m tools.corpus.duplicates data/raw.jsonl --out data/copies.tsv
+  CORPUS_ACTION=duplicates CORPUS_INPUT_PATH=data/raw.jsonl uv run --project tools corpus
+  CORPUS_ACTION=duplicates CORPUS_INPUT_PATH=data/raw.jsonl CORPUS_OUTPUT_PATH=data/copies.tsv uv run --project tools corpus
   ```
 
   Перепечаткой он считает только тексты, у которых совпадают упомянутые
@@ -365,11 +365,11 @@
 
 ```bash
 # 1. Отсеять реплики студентов: сначала посмотреть список, потом применить
-python -m tools.corpus.reject_noise
-python -m tools.corpus.reject_noise --apply --out data/rejected.txt
+CORPUS_ACTION=reject-noise uv run --project tools corpus
+CORPUS_ACTION=reject-noise CORPUS_APPLY=true CORPUS_OUTPUT_PATH=data/rejected.txt uv run --project tools corpus
 
 # 2. Отобрать набор с квотой на канал (после отсева, иначе в квоту попадёт шум)
-python -m tools.corpus.sample --out data/gold_plan.tsv
+CORPUS_ACTION=sample CORPUS_OUTPUT_PATH=data/gold_plan.tsv uv run --project tools corpus
 ```
 
 `sample` печатает, сколько постов размечать в каждом канале, — по этим числам
@@ -404,21 +404,21 @@ python -m tools.corpus.sample --out data/gold_plan.tsv
 метку»), убрать разом можно так:
 
 ```bash
-python -m tools.corpus.release_facet program --apply
+CORPUS_ACTION=release-facet CORPUS_FACET=program CORPUS_APPLY=true uv run --project tools corpus
 ```
 
 Посмотреть, сколько уже сделано:
 
 ```bash
-python -m tools.corpus.progress --by-channel
+CORPUS_ACTION=progress CORPUS_BY_CHANNEL=true uv run --project tools corpus
 ```
 
 ### После разметки
 
 ```bash
 # 3. Перенести разметку с оригиналов на копии перепечаток
-python -m tools.corpus.copy_labels
-python -m tools.corpus.copy_labels --apply --gold
+CORPUS_ACTION=copy-labels uv run --project tools corpus
+CORPUS_ACTION=copy-labels CORPUS_APPLY=true CORPUS_GOLD_COPIES=true uv run --project tools corpus
 ```
 
 ### Правила, а не кнопки
@@ -429,8 +429,8 @@ python -m tools.corpus.copy_labels --apply --gold
    определения и приоритеты. Дальше определения не меняем до конца разметки,
    иначе первые и последние сто постов будут размечены по разным правилам.
 3. Разметка двойная: второй разметчик получает слепой CSV
-   (`python -m tools.eval blind`), согласие считается каппой
-   (`python -m tools.eval kappa`).
+   (`EVAL_ACTION=blind uv run --project tools evaluation`), согласие считается каппой
+   (`EVAL_ACTION=kappa uv run --project tools evaluation`).
 4. **Каппа ниже 0.6 по оси — это дефект инструкции, а не разметчика.**
    Чиним формулировки и переразмечаем расхождения, а не «дообучаем модель».
 5. **Золотом во время разметки ничего не помечаем.** Флаг `is_gold` — это не
@@ -439,7 +439,7 @@ python -m tools.corpus.copy_labels --apply --gold
    после первых прогонов измерителя, примерно на половину набора; вторая
    половина остаётся прод-пулом примеров. Пометить всё золотом — значит
    оставить классификатор в проде без единого примера.
-6. Измерителю флаг не нужен: `tools/eval` работает с экспортом ручной
+6. Измерителю флаг не нужен: `tools/lib/interactor/use_cases/eval_*` работает с экспортом ручной
    разметки целиком, по схеме leave-one-out.
 7. Посмотреть или снять уже проставленное золото:
-   `python -m tools.corpus.gold` и `--clear --apply`. Разметку это не трогает.
+   `CORPUS_ACTION=gold CORPUS_CLEAR_GOLD=true CORPUS_APPLY=true uv run --project tools corpus`. Разметку это не трогает.

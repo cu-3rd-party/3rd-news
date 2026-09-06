@@ -1,0 +1,9 @@
+from typing import Any, Protocol
+
+
+class NewsDeliveryStorage(Protocol):
+    async def news(self, news_id: Any) -> Any: ...
+
+    async def visibility_ready(self) -> bool: ...
+
+    async def taxonomy(self) -> dict[str, Any]: ...

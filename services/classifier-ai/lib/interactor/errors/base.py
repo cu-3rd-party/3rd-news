@@ -1,0 +1,2 @@
+class ClassifierError(Exception):
+    pass

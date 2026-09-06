@@ -1,0 +1,22 @@
+{
+    log default {
+        format filter {
+            request delete
+            resp_headers delete
+            wrap json
+        }
+    }
+}
+
+:80 {
+    root * /srv
+    encode zstd gzip
+    try_files {path} /index.html
+    file_server
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy no-referrer
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        Content-Security-Policy "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+    }
+}

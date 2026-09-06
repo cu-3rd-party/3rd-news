@@ -1,0 +1,138 @@
+{
+  "$defs": {
+    "EventMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "correlation_id": {
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "causation_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Causation Id"
+        },
+        "actor_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actor Id"
+        },
+        "attributes": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Attributes",
+          "type": "object"
+        }
+      },
+      "required": [
+        "correlation_id"
+      ],
+      "title": "EventMetadata",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "2.0",
+      "default": "2.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "event_type": {
+      "enum": [
+        "submission.accepted.v2",
+        "classification.requested.v2",
+        "search.projection.requested.v2"
+      ],
+      "title": "Event Type",
+      "type": "string"
+    },
+    "occurred_at": {
+      "format": "date-time",
+      "title": "Occurred At",
+      "type": "string"
+    },
+    "aggregate_id": {
+      "title": "Aggregate Id",
+      "type": "string"
+    },
+    "aggregate_version": {
+      "title": "Aggregate Version",
+      "type": "integer"
+    },
+    "metadata": {
+      "$ref": "#/$defs/EventMetadata"
+    },
+    "payload": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "integer"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "title": "Payload",
+      "type": "object"
+    }
+  },
+  "required": [
+    "event_id",
+    "event_type",
+    "occurred_at",
+    "aggregate_id",
+    "aggregate_version",
+    "metadata"
+  ],
+  "title": "EventEnvelope",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://3rd.news/contracts/v2/events/envelope.schema.json"
+}

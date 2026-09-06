@@ -1,12 +1,61 @@
 [project]
-name = "thirdnews-main"
-version = "0.1.0"
-description = "3rd-news main service: ingest, storage, taxonomy, classification orchestration, delivery"
-requires-python = ">=3.11"
-dynamic = ["dependencies"]
+name = "thirdnews"
+version = "2.0.0"
+description = "University news API and durable processing workers"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+  "thirdnews-contracts", "aioboto3", "aiohttp", "alembic", "argon2-cffi",
+  "asyncpg", "cryptography", "fastapi", "granian", "joserfc>=1.5",
+  "nats-py", "orjson", "pydantic", "pydantic-settings",
+  "pypdf", "python-multipart", "sqlalchemy[asyncio]", "stamina", "starlette",
+  "uvloop; sys_platform != 'win32'",
+]
 
-[tool.setuptools.dynamic]
-dependencies = { file = ["requirements.txt"] }
+[project.scripts]
+thirdnews-bootstrap-password = "lib.core.bootstrap_password:main"
+thirdnews-healthcheck = "lib.core.healthcheck:main"
 
-[tool.setuptools.packages.find]
-include = ["app*"]
+[dependency-groups]
+dev = ["granian[reload]"]
+lint = ["ruff", "ty", "basedpyright", "asyncpg-stubs", "types-aiobotocore-s3", "pip-audit", "squawk-cli"]
+test = [
+  "hypothesis", "moto[s3]", "mutmut", "pytest", "pytest-asyncio",
+  "pytest-benchmark", "pytest-cov", "pytest-gremlins", "pytest-xdist",
+  "schemathesis", "testcontainers[postgres]",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+thirdnews-contracts = { path = "../../packages/python/contracts" }
+
+[tool.hatch.build.targets.wheel]
+packages = ["lib"]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+src = ["lib"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "--strict-markers --strict-config"
+markers = ["integration: requires isolated infrastructure", "e2e: full application stack", "benchmark: performance measurement"]
+
+[tool.basedpyright]
+include = ["lib", "main.py"]
+pythonVersion = "3.14"
+typeCheckingMode = "standard"
+
+[tool.mutmut]
+source_paths = ["lib"]
+only_mutate = ["*/lib/domain/*", "lib/domain/*"]
+pytest_add_cli_args_test_selection = ["test/test_domain.py"]

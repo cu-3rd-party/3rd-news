@@ -1,0 +1,28 @@
+services:
+  api:
+    environment:
+      ENVIRONMENT: production
+  worker-outbox:
+    environment:
+      ENVIRONMENT: production
+  worker-pipeline:
+    environment:
+      ENVIRONMENT: production
+  worker-index:
+    environment:
+      ENVIRONMENT: production
+  init:
+    environment:
+      ENVIRONMENT: production
+      FILE_PUBLIC_SCHEME: https
+      FILE_PUBLIC_HOST: ${UPLOAD_ADDRESS:?Set a separate upload DNS name}
+      FILE_PUBLIC_PORT: 443
+  proxy:
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?Set a public DNS name for TLS}
+      UPLOAD_ADDRESS: ${UPLOAD_ADDRESS:?Set a separate upload DNS name}
+    ports: !override
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    networks: [internal, egress]

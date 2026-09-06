@@ -1,0 +1,331 @@
+{
+  "$defs": {
+    "AITrace": {
+      "additionalProperties": false,
+      "properties": {
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
+        },
+        "prompt_version": {
+          "title": "Prompt Version",
+          "type": "string"
+        },
+        "schema_version": {
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "taxonomy_version": {
+          "title": "Taxonomy Version",
+          "type": "string"
+        },
+        "request_payload": {
+          "additionalProperties": true,
+          "title": "Request Payload",
+          "type": "object"
+        },
+        "raw_response": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Raw Response"
+        },
+        "duration_ms": {
+          "minimum": 0,
+          "title": "Duration Ms",
+          "type": "integer"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        }
+      },
+      "required": [
+        "provider",
+        "model",
+        "prompt_version",
+        "schema_version",
+        "taxonomy_version",
+        "request_payload",
+        "duration_ms"
+      ],
+      "title": "AITrace",
+      "type": "object"
+    },
+    "ClassificationError": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "retryable"
+      ],
+      "title": "ClassificationError",
+      "type": "object"
+    },
+    "ClassificationStatus": {
+      "enum": [
+        "completed",
+        "failed"
+      ],
+      "title": "ClassificationStatus",
+      "type": "string"
+    },
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "text",
+            "attachment",
+            "rule",
+            "model"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "excerpt": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Excerpt"
+        },
+        "attachment_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attachment Id"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start"
+        },
+        "end": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "ProposedLabel": {
+      "additionalProperties": false,
+      "properties": {
+        "axis": {
+          "title": "Axis",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "string"
+        },
+        "confidence": {
+          "default": 1.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "maxItems": 50,
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "axis",
+        "value"
+      ],
+      "title": "ProposedLabel",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "2.0",
+      "default": "2.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "request_id": {
+      "title": "Request Id",
+      "type": "string"
+    },
+    "job_id": {
+      "title": "Job Id",
+      "type": "string"
+    },
+    "attempt_id": {
+      "title": "Attempt Id",
+      "type": "string"
+    },
+    "news_id": {
+      "title": "News Id",
+      "type": "string"
+    },
+    "news_version": {
+      "minimum": 1,
+      "title": "News Version",
+      "type": "integer"
+    },
+    "classifier": {
+      "title": "Classifier",
+      "type": "string"
+    },
+    "node_id": {
+      "title": "Node Id",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/ClassificationStatus"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ClassificationError"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "labels": {
+      "items": {
+        "$ref": "#/$defs/ProposedLabel"
+      },
+      "title": "Labels",
+      "type": "array"
+    },
+    "skipped": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Skipped",
+      "type": "array"
+    },
+    "trace": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AITrace"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "meta": {
+      "additionalProperties": true,
+      "title": "Meta",
+      "type": "object"
+    }
+  },
+  "required": [
+    "request_id",
+    "job_id",
+    "attempt_id",
+    "news_id",
+    "news_version",
+    "classifier",
+    "node_id",
+    "status"
+  ],
+  "title": "ClassifyResponse",
+  "type": "object"
+}
