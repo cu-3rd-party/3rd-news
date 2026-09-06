@@ -1,6 +1,6 @@
 from typing import Any, Protocol
 
-from lib.dto.accepted_submission import AcceptedSubmission
+from lib.domain import AcceptedSubmission
 from lib.interactor.interfaces.storage.labels import LabelStorage
 
 

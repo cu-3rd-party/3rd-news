@@ -1,4 +1,4 @@
-from lib.dto.claimed_attempt import ClaimedAttempt
+from lib.domain import ClaimedAttempt
 from lib.infra.storage.postgres.models import Job, News
 
 

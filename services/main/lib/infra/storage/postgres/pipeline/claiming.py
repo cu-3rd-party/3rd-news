@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from lib.dto.claimed_attempt import ClaimedAttempt
-from lib.dto.pipeline_runtime import PipelineRuntime
+from lib.domain import ClaimedAttempt, PipelineRuntime
 from lib.infra.storage.postgres.models import Job, News, ProcessingAttempt
 from sqlalchemy import or_, select
 

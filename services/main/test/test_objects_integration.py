@@ -48,9 +48,9 @@ async def test_remote_attachment_is_stored_visible_and_indexed(integration_datab
     processing = SqlAlchemyAttachmentProcessingStorage(
         integration_database, cast(Any, SyntheticFetcher()), cast(Any, storage), node_id="qa-remote"
     )
-    claim = await processing._claim()
+    claim = await processing.claim()
     assert claim is not None and claim.attachment_id == attachment.id
-    await processing._process(claim)
+    await processing.process(claim)
     async with integration_database() as session:
         actual = await session.get(Attachment, attachment.id)
         assert actual.status == "stored"

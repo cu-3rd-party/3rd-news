@@ -8,8 +8,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from thirdnews_contracts import CallbackResult, ClassifyRequest
 
-from lib.dto.claimed_attempt import ClaimedAttempt
-from lib.dto.pipeline_runtime import PipelineRuntime
+from lib.domain import ClaimedAttempt, PipelineRuntime
 from lib.interactor.errors import StaleAttemptError
 from lib.interactor.interfaces.clients.classifier import ClassifierGateway
 from lib.interactor.interfaces.storage.pipeline import PipelineStorage

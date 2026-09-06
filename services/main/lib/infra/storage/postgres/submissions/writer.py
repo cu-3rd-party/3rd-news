@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from lib.dto.accepted_submission import AcceptedSubmission
+from lib.domain import AcceptedSubmission
 from lib.infra.storage.postgres.models import (
     Job,
     News,
@@ -15,9 +15,9 @@ from lib.infra.storage.postgres.models import (
 from lib.interactor.interfaces.storage.labels import LabelStorage
 from lib.interactor.interfaces.storage.submission_writer import SubmissionWriterStorage
 from lib.interactor.interfaces.storage.unit_of_work import UnitOfWork
+from lib.interactor.use_cases.effective_labels import EffectiveLabels
 
 from .attachment_writer import SubmissionAttachmentWriter
-from lib.interactor.use_cases.effective_labels import EffectiveLabels
 from .identity_lookup import SqlAlchemySubmissionIdentityStorage
 
 

@@ -5,9 +5,9 @@ from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, Request
 
+from lib.core.config import AUTH_SESSION_COOKIE
 from lib.core.service_factory import service_factory
 from lib.dto.principal import Principal
-from lib.core.config import AUTH_AUTH_SESSION_COOKIE
 
 
 async def session(request: Request) -> AsyncIterator[Any]:

@@ -1,16 +1,13 @@
-import asyncio
 import json
 
 from thirdnews_contracts import Taxonomy
 
-from ..core.config import Settings, get_settings
+from ..core.config import Settings
 from ..domain.entities.prediction import Prediction
 from ..domain.entities.record import Record
 from ..dto.evaluation_report import EvaluationReport
-from ..infra.clients.classifier_runtime import load_classifiers
-from ..infra.clients.e5_embedder import E5Embedder
-from ..infra.clients.fake_embedder import FakeEmbedder
-from ..infra.storage.cached_embedder import CachedEmbedder
+from ..interactor.interfaces.clients.embedder import Embedder
+from ..interactor.interfaces.clients.evaluation_runtime import EvaluationRuntime
 from ..interactor.use_cases.eval_dataset import load_context, load_records, load_taxonomy
 from ..interactor.use_cases.eval_examples import select_knn, select_recent
 from ..interactor.use_cases.eval_kappa import kappa_report, read_labels_csv, write_blind_csv
@@ -18,22 +15,17 @@ from ..interactor.use_cases.eval_metrics import summarize
 from ..interactor.use_cases.eval_runners import build_request, combine, run_ai, run_regex
 
 
-def embedder(settings: Settings) -> CachedEmbedder:
-    inner = (
-        FakeEmbedder()
-        if settings.eval_embedder == "fake"
-        else E5Embedder(settings.eval_embedding_model)
+def embedder(settings: Settings, runtime: EvaluationRuntime) -> Embedder:
+    return runtime.embedder(
+        settings.eval_embedder,
+        settings.eval_embedding_model,
+        str(settings.eval_cache_path),
     )
-    tag = (
-        "fake"
-        if settings.eval_embedder == "fake"
-        else settings.eval_embedding_model.replace("/", "__")
-    )
-    return CachedEmbedder(inner, settings.eval_cache_path / "emb" / tag)
 
 
 async def predict_all(
     settings: Settings,
+    runtime: EvaluationRuntime,
 ) -> tuple[list[Record], Taxonomy, dict[str, Prediction]]:
     records = load_records(settings.eval_data_path)
     taxonomy = load_taxonomy(settings.eval_taxonomy_path)
@@ -41,8 +33,8 @@ async def predict_all(
     targets = (
         [record for record in records if record.is_gold] if settings.eval_only_gold else records
     )
-    regex_module, ai_module = load_classifiers()
-    cached_embedder = embedder(settings) if settings.eval_examples == "knn" else None
+    regex_module, ai_module = runtime.load_classifiers()
+    cached_embedder = embedder(settings, runtime) if settings.eval_examples == "knn" else None
     config = {"model": settings.eval_model} if settings.eval_model else {}
     predictions: dict[str, Prediction] = {}
     for record in targets:
@@ -78,8 +70,8 @@ async def predict_all(
     return targets, taxonomy, predictions
 
 
-def run(settings: Settings) -> int:
-    records, taxonomy, predictions = asyncio.run(predict_all(settings))
+async def run(settings: Settings, runtime: EvaluationRuntime) -> int:
+    records, taxonomy, predictions = await predict_all(settings, runtime)
     summary = summarize(records, predictions, taxonomy)
     payload = EvaluationReport(
         name=settings.eval_output_path.stem,
@@ -152,9 +144,3 @@ def print_summary(name: str, summary: dict) -> None:
             f"  {facet['facet']} exact={facet['exact']:.3f} "
             f"macroF1={facet['macro_f1']:.3f} (n={facet['n']})"
         )
-
-
-def main() -> int:
-    settings = get_settings()
-    actions = {"run": run, "compare": compare, "blind": blind, "kappa": kappa}
-    return actions[settings.eval_action](settings)

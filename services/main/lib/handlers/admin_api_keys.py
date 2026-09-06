@@ -8,8 +8,8 @@ from lib.core.service_factory import service_factory
 from lib.dto.requests import (
     ApiKeyInput,
 )
-from lib.interactor.interfaces.storage.api_key import ApiKeyStorage
 from lib.interactor.errors import ConflictError, NotFoundError
+from lib.interactor.interfaces.storage.api_key import ApiKeyStorage
 
 from .common import actor, error_status
 from .dependencies import AdminPrincipal, DbSession

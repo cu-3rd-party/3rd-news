@@ -7,8 +7,8 @@ from typing import Any
 
 from sqlalchemy.exc import IntegrityError
 
+from lib.domain import AcceptedSubmission
 from lib.domain import SubmissionIdentity
-from lib.dto.accepted_submission import AcceptedSubmission
 from lib.interactor.errors import ConflictError, ValidationError
 from lib.interactor.interfaces.storage.labels import LabelStorage
 from lib.interactor.interfaces.storage.submission_identity import SubmissionIdentityStorage

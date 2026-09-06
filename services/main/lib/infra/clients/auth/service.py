@@ -15,21 +15,26 @@ from argon2.exceptions import InvalidHashError, VerifyMismatchError
 from joserfc import jwt
 from joserfc.errors import JoseError
 from joserfc.jwk import OKPKey
-from lib.dto.principal import Principal
 from lib.core.config import (
     AUTH_CSRF_COOKIE as CSRF_COOKIE,
-    AUTH_DUMMY_PASSWORD_HASH as DUMMY_PASSWORD_HASH,
+)
+from lib.core.config import (
     AUTH_ROLE_SCOPES as ROLE_SCOPES,
+)
+from lib.core.config import (
     AUTH_SESSION_COOKIE as SESSION_COOKIE,
-    AUTH_SESSION_TTL as SESSION_TTL,
+)
+from lib.core.config import (
     AUTH_TOKEN_TTL as TOKEN_TTL,
 )
+from lib.dto.principal import Principal
 from lib.infra.storage.postgres.models import ApiKey, Session, User
 from lib.interactor.errors.password_verification_capacity import (
     PasswordVerificationCapacityError,
 )
 from lib.interactor.interfaces.clients.authentication import AuthenticationClient
 from sqlalchemy import or_, select, update
+
 
 class AuthService(AuthenticationClient):
     API_PREFIX = "tn2_"

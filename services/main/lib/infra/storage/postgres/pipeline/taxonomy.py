@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from lib.domain import AxisDefinition
 from lib.infra.storage.postgres.models import Facet, Setting
-from lib.interactor.use_cases.processing.normalization import AxisDefinition
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload

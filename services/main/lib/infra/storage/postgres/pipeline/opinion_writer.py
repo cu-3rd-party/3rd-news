@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from lib.domain import AxisDefinition, NormalizedLabel
 from lib.infra.storage.postgres.labels import SqlAlchemyLabelStorage
 from lib.infra.storage.postgres.models import (
     Classifier,
@@ -11,7 +12,6 @@ from lib.infra.storage.postgres.models import (
     NewsLabel,
     ProcessingAttempt,
 )
-from lib.interactor.use_cases.processing.normalization import AxisDefinition, NormalizedLabel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 

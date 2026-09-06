@@ -70,18 +70,18 @@ class SqlAlchemyPipelineCoordinatorStorage(PipelineCoordinatorStorage):
             if parent is None:
                 return False
             if parent.status == "pending" or not parent.payload.get("stage"):
-                await self._start(session, parent, now)
+                await self.start(session, parent, now)
             else:
-                await self._advance(session, parent, now)
+                await self.advance(session, parent, now)
         return True
 
-    async def _start(self, session: AsyncSession, parent: Job, now: datetime) -> None:
+    async def start(self, session: AsyncSession, parent: Job, now: datetime) -> None:
         if parent.news_id is None:
-            self._dead(parent, now, "pipeline job has no news")
+            self.dead(parent, now, "pipeline job has no news")
             return
         news = await session.get(News, parent.news_id, with_for_update=True)
         if news is None or news.current_version_id is None:
-            self._dead(parent, now, "pipeline news or version is missing")
+            self.dead(parent, now, "pipeline news or version is missing")
             return
         parent.generation += 1
         parent.attempt_count += 1
@@ -135,11 +135,11 @@ class SqlAlchemyPipelineCoordinatorStorage(PipelineCoordinatorStorage):
         parent.lease_until = None
         parent.owner = None
 
-    async def _advance(self, session: AsyncSession, parent: Job, now: datetime) -> None:
+    async def advance(self, session: AsyncSession, parent: Job, now: datetime) -> None:
         try:
             child_ids = [uuid.UUID(value) for value in parent.payload.get("children", [])]
         except TypeError, ValueError:
-            self._dead(parent, now, "pipeline child list is invalid")
+            self.dead(parent, now, "pipeline child list is invalid")
             return
         children = (
             (await session.scalars(select(Job).where(Job.id.in_(child_ids)))).all()
@@ -151,15 +151,15 @@ class SqlAlchemyPipelineCoordinatorStorage(PipelineCoordinatorStorage):
             return
         if parent.payload.get("stage") == "attachments":
             if any(child.status != "succeeded" for child in children):
-                await self._finish(session, parent, children, now)
+                await self.finish(session, parent, children, now)
                 return
-            await self._start_classifiers(session, parent, now)
+            await self.start_classifiers(session, parent, now)
             return
-        await self._finish(session, parent, children, now)
+        await self.finish(session, parent, children, now)
 
-    async def _start_classifiers(self, session: AsyncSession, parent: Job, now: datetime) -> None:
+    async def start_classifiers(self, session: AsyncSession, parent: Job, now: datetime) -> None:
         if parent.news_id is None:
-            self._dead(parent, now, "pipeline news is missing")
+            self.dead(parent, now, "pipeline news is missing")
             return
         private_source = await session.scalar(
             select(Source.id)
@@ -169,7 +169,7 @@ class SqlAlchemyPipelineCoordinatorStorage(PipelineCoordinatorStorage):
             .limit(1)
         )
         if private_source is not None:
-            await self._finish(session, parent, [], now)
+            await self.finish(session, parent, [], now)
             return
         classifiers = (
             await session.scalars(
@@ -198,7 +198,7 @@ class SqlAlchemyPipelineCoordinatorStorage(PipelineCoordinatorStorage):
         }
         parent.available_at = now + timedelta(seconds=self._cooldown)
 
-    async def _finish(
+    async def finish(
         self, session: AsyncSession, parent: Job, children: Sequence[Job], now: datetime
     ) -> None:
         news = await session.get(News, parent.news_id, with_for_update=True)
@@ -210,7 +210,7 @@ class SqlAlchemyPipelineCoordinatorStorage(PipelineCoordinatorStorage):
             parent.completed_at = now
             return
         failed = [child for child in children if child.status != "succeeded"]
-        can_publish = not failed and await self._auto_publish_allowed(session, news)
+        can_publish = not failed and await self.auto_publish_allowed(session, news)
         news.status = "published" if can_publish else "needs_review"
         if can_publish:
             news.published_at = now
@@ -242,7 +242,7 @@ class SqlAlchemyPipelineCoordinatorStorage(PipelineCoordinatorStorage):
         )
 
     @staticmethod
-    async def _auto_publish_allowed(session: AsyncSession, news: News) -> bool:
+    async def auto_publish_allowed(session: AsyncSession, news: News) -> bool:
         setting = await session.get(Setting, "auto_publish")
         if setting is None or setting.value.get("enabled") is not True:
             return False
@@ -266,7 +266,7 @@ class SqlAlchemyPipelineCoordinatorStorage(PipelineCoordinatorStorage):
         return set(required) <= labeled
 
     @staticmethod
-    def _dead(parent: Job, now: datetime, reason: str) -> None:
+    def dead(parent: Job, now: datetime, reason: str) -> None:
         parent.status = "dead_letter"
         parent.last_error = reason
         parent.completed_at = now

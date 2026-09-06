@@ -4,8 +4,7 @@ import math
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-from lib.dto.axis_definition import AxisDefinition
-from lib.dto.normalized_label import NormalizedLabel
+from lib.domain import AxisDefinition, NormalizedLabel
 
 
 def normalize_labels(

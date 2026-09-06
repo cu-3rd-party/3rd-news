@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-from lib.dto.claimed_attempt import ClaimedAttempt
-from lib.dto.pipeline_runtime import PipelineRuntime
+from lib.domain import ClaimedAttempt, PipelineRuntime
 
 
 class PipelineStorage(Protocol):

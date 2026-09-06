@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Request
 
 from lib.core.service_factory import service_factory
-from lib.dto.pipeline_runtime import PipelineRuntime
+from lib.domain import PipelineRuntime
 from lib.interactor.errors import ClassifierProtocolError, StaleAttemptError
 from lib.interactor.use_cases.processing.raw_payloads import RawPayloadProtector
 

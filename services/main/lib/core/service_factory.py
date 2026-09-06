@@ -113,9 +113,7 @@ class ServiceFactory:
         max_bytes: int | None = None,
     ) -> SafeFetcher:
         return SafeFetcher(
-            policy=UrlPolicy.with_service_hosts(
-                hosts, max_redirects=settings.fetch_max_redirects
-            ),
+            policy=UrlPolicy.with_service_hosts(hosts, max_redirects=settings.fetch_max_redirects),
             timeout_seconds=timeout_seconds or settings.fetch_timeout_seconds,
             max_bytes=max_bytes or settings.fetch_max_bytes,
         )

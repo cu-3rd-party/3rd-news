@@ -3,8 +3,7 @@ from __future__ import annotations
 import uuid
 
 from lib.core.config import CLASSIFIER_EXAMPLE_DEFAULT_COUNT, CLASSIFIER_EXAMPLE_MAX_COUNT
-from lib.dto.claimed_attempt import ClaimedAttempt
-from lib.dto.pipeline_runtime import PipelineRuntime
+from lib.domain import ClaimedAttempt, PipelineRuntime
 from lib.infra.storage.postgres.models import (
     Attachment,
     Classifier,

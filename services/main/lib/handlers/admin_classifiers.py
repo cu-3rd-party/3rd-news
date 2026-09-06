@@ -12,8 +12,8 @@ from lib.dto.requests import (
     ClassifierPatch,
     ClassifierSigningKeyInput,
 )
-from lib.interactor.interfaces.storage.classifier import ClassifierStorage
 from lib.interactor.errors import ConflictError, NotFoundError, ValidationError
+from lib.interactor.interfaces.storage.classifier import ClassifierStorage
 
 from .common import actor, error_status
 from .dependencies import AdminPrincipal, DbSession

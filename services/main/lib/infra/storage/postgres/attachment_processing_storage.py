@@ -4,11 +4,11 @@ import asyncio
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from lib.dto.attachment_claim import AttachmentClaim
+from lib.dto.attachmentclaim import AttachmentClaim
 from lib.infra.clients.http import SafeFetcher
 from lib.infra.storage.postgres.models import Attachment, Job, News, ProcessingAttempt
 from lib.infra.storage.s3 import S3ObjectStore, extract_text_isolated
-from lib.interactor.interfaces.storage.attachment_processing import AttachmentProcessingStorage
+from lib.interactor.interfaces.storage.attachmentprocessing import AttachmentProcessingStorage
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -36,20 +36,20 @@ class SqlAlchemyAttachmentProcessingStorage(AttachmentProcessingStorage):
     async def run(self, *, stop: asyncio.Event, concurrency: int = 2) -> None:
         async with asyncio.TaskGroup() as group:
             for _ in range(concurrency):
-                group.create_task(self._run_slot(stop))
+                group.create_task(self.run_slot(stop))
 
-    async def _run_slot(self, stop: asyncio.Event) -> None:
+    async def run_slot(self, stop: asyncio.Event) -> None:
         while not stop.is_set():
-            claim = await self._claim()
+            claim = await self.claim()
             if claim is None:
                 try:
                     await asyncio.wait_for(stop.wait(), timeout=self._poll_seconds)
                 except TimeoutError:
                     pass
                 continue
-            await self._process(claim)
+            await self.process(claim)
 
-    async def _claim(self) -> AttachmentClaim | None:
+    async def claim(self) -> AttachmentClaim | None:
         now = datetime.now(UTC)
         async with self._sessions() as session, session.begin():
             job = await session.scalar(
@@ -109,7 +109,7 @@ class SqlAlchemyAttachmentProcessingStorage(AttachmentProcessingStorage):
             job.lease_until = attempt.deadline_at
             return AttachmentClaim(job.id, attempt.id, job.generation, attachment_id)
 
-    async def _process(self, claim: AttachmentClaim) -> None:
+    async def process(self, claim: AttachmentClaim) -> None:
         try:
             async with self._sessions() as session:
                 attachment = await session.get(Attachment, claim.attachment_id)
@@ -142,7 +142,7 @@ class SqlAlchemyAttachmentProcessingStorage(AttachmentProcessingStorage):
                 )
                 if (
                     job is None
-                    or not self._matches(job, claim)
+                    or not self.matches(job, claim)
                     or attempt is None
                     or attachment is None
                 ):
@@ -174,15 +174,15 @@ class SqlAlchemyAttachmentProcessingStorage(AttachmentProcessingStorage):
                 job.owner = None
                 job.lease_until = None
         except Exception as exc:
-            await self._fail(claim, exc)
+            await self.fail(claim, exc)
 
-    async def _fail(self, claim: AttachmentClaim, error: Exception) -> None:
+    async def fail(self, claim: AttachmentClaim, error: Exception) -> None:
         now = datetime.now(UTC)
         async with self._sessions() as session, session.begin():
             job = await session.get(Job, claim.job_id, with_for_update=True)
             attempt = await session.get(ProcessingAttempt, claim.attempt_id, with_for_update=True)
             attachment = await session.get(Attachment, claim.attachment_id, with_for_update=True)
-            if job is None or not self._matches(job, claim) or attempt is None:
+            if job is None or not self.matches(job, claim) or attempt is None:
                 return
 
             detail = type(error).__name__
@@ -206,7 +206,7 @@ class SqlAlchemyAttachmentProcessingStorage(AttachmentProcessingStorage):
                 )
 
     @staticmethod
-    def _matches(job: Job | None, claim: AttachmentClaim) -> bool:
+    def matches(job: Job | None, claim: AttachmentClaim) -> bool:
         return bool(
             job is not None
             and job.current_attempt_id == claim.attempt_id

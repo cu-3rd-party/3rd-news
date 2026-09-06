@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from lib.dto.pipeline_runtime import PipelineRuntime
+from lib.domain import PipelineRuntime
 from lib.infra.storage.postgres.models import ProcessingAttempt
 from sqlalchemy import or_, update
 

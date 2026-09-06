@@ -4,20 +4,22 @@ from datetime import timedelta
 
 from fastapi import APIRouter, HTTPException, Request, Response
 
+from lib.core.config import (
+    AUTH_CSRF_COOKIE,
+    AUTH_DUMMY_PASSWORD_HASH,
+    AUTH_ROLE_SCOPES,
+    AUTH_SESSION_COOKIE,
+)
 from lib.core.service_factory import service_factory
+from lib.dto.principal import Principal
 from lib.dto.requests import (
     LoginRequest,
     TokenResponse,
 )
-from lib.infra.clients.auth.service import (
-    CSRF_COOKIE,
-    DUMMY_PASSWORD_HASH,
-    ROLE_SCOPES,
-    SESSION_COOKIE,
+from lib.interactor.errors.password_verification_capacity import (
     PasswordVerificationCapacityError,
-    Principal,
 )
-from lib.infra.storage.postgres.repositories import AuthAccountRepository
+from lib.interactor.interfaces.storage.auth_account import AuthAccountStorage
 
 from .common import now
 from .dependencies import DbSession, ReadPrincipal
@@ -28,7 +30,7 @@ router = APIRouter()
 async def _authenticated_user(
     payload: LoginRequest,
     request: Request,
-    accounts: AuthAccountRepository,
+    accounts: AuthAccountStorage,
 ):
     auth = request.app.state.auth
     moment = now()
@@ -37,7 +39,9 @@ async def _authenticated_user(
         raise HTTPException(401, "invalid credentials")
 
     user = await accounts.find_user_by_email(payload.email)
-    encoded = user.password_hash if user is not None and user.is_active else DUMMY_PASSWORD_HASH
+    encoded = (
+        user.password_hash if user is not None and user.is_active else AUTH_DUMMY_PASSWORD_HASH
+    )
     try:
         password_valid = await auth.verify_password_bounded(payload.password, encoded)
     except PasswordVerificationCapacityError:
@@ -77,10 +81,22 @@ async def login(
     await accounts.commit()
     secure = request.app.state.settings.environment == "production"
     response.set_cookie(
-        SESSION_COOKIE, token, httponly=True, secure=secure, samesite="lax", max_age=28800, path="/"
+        AUTH_SESSION_COOKIE,
+        token,
+        httponly=True,
+        secure=secure,
+        samesite="lax",
+        max_age=28800,
+        path="/",
     )
     response.set_cookie(
-        CSRF_COOKIE, csrf, httponly=False, secure=secure, samesite="lax", max_age=28800, path="/"
+        AUTH_CSRF_COOKIE,
+        csrf,
+        httponly=False,
+        secure=secure,
+        samesite="lax",
+        max_age=28800,
+        path="/",
     )
     return {
         "kind": "session",
@@ -99,7 +115,7 @@ async def token(payload: LoginRequest, request: Request, session: DbSession) -> 
         "user",
         user.email,
         user.full_name or user.email,
-        ROLE_SCOPES.get(user.role, frozenset({"read"})),
+        AUTH_ROLE_SCOPES.get(user.role, frozenset({"read"})),
         user.id,
         role=user.role,
     )
@@ -111,7 +127,7 @@ async def token(payload: LoginRequest, request: Request, session: DbSession) -> 
 
 @router.post("/api/v1/auth/logout", status_code=204)
 async def logout(request: Request, response: Response, session: DbSession) -> Response:
-    raw = request.cookies.get(SESSION_COOKIE)
+    raw = request.cookies.get(AUTH_SESSION_COOKIE)
     if raw:
         accounts = service_factory.auth_account(session)
         row = await accounts.find_session_by_hash(request.app.state.auth.hash_secret(raw))
@@ -120,8 +136,8 @@ async def logout(request: Request, response: Response, session: DbSession) -> Re
                 raise HTTPException(403, "CSRF validation failed")
             row.revoked_at = now()
             await accounts.commit()
-    response.delete_cookie(SESSION_COOKIE, path="/")
-    response.delete_cookie(CSRF_COOKIE, path="/")
+    response.delete_cookie(AUTH_SESSION_COOKIE, path="/")
+    response.delete_cookie(AUTH_CSRF_COOKIE, path="/")
     response.status_code = 204
     return response
 

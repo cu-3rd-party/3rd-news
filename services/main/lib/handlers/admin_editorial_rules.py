@@ -8,8 +8,8 @@ from lib.core.service_factory import service_factory
 from lib.dto.requests import (
     EditorialRuleInput,
 )
-from lib.interactor.interfaces.storage.editorial_rule import EditorialRuleStorage
 from lib.interactor.errors import ConflictError, NotFoundError, ValidationError
+from lib.interactor.interfaces.storage.editorial_rule import EditorialRuleStorage
 
 from .common import actor, error_status
 from .dependencies import AdminPrincipal, DbSession

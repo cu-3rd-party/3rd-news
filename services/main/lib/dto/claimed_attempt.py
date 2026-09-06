@@ -1,9 +1,3 @@
-import uuid
-from dataclasses import dataclass
+from lib.domain.entities.claimed_attempt import ClaimedAttempt
 
-
-@dataclass(frozen=True, slots=True)
-class ClaimedAttempt:
-    job_id: uuid.UUID
-    attempt_id: uuid.UUID
-    generation: int
+__all__ = ["ClaimedAttempt"]

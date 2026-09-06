@@ -1,8 +1,3 @@
-from dataclasses import dataclass
+from lib.domain.entities.axis_definition import AxisDefinition
 
-
-@dataclass(frozen=True, slots=True)
-class AxisDefinition:
-    slug: str
-    values: frozenset[str]
-    multiple: bool = False
+__all__ = ["AxisDefinition"]

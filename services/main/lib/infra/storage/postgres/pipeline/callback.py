@@ -3,8 +3,7 @@ from __future__ import annotations
 import hashlib
 import uuid
 
-from lib.dto.claimed_attempt import ClaimedAttempt
-from lib.dto.pipeline_runtime import PipelineRuntime
+from lib.domain import ClaimedAttempt, PipelineRuntime
 from lib.infra.storage.postgres.models import Classifier, Job, ProcessingAttempt
 from lib.interactor.errors import ClassifierProtocolError, StaleAttemptError
 from lib.interactor.use_cases.processing.classification_response_policy import (

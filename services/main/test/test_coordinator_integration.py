@@ -135,7 +135,7 @@ async def test_failed_attachment_finishes_pipeline_for_review_and_preserves_fail
     async with integration_database() as session, session.begin():
         parent = await session.get(Job, parent_id, with_for_update=True)
         assert parent is not None
-        await coordinator(integration_database)._advance(session, parent, now)
+        await coordinator(integration_database).advance(session, parent, now)
 
     async with integration_database() as session:
         news = await session.get(News, news_id)
@@ -169,7 +169,7 @@ async def test_source_skip_classification_finishes_without_classifier_jobs(
     async with integration_database() as session, session.begin():
         parent = await session.get(Job, parent_id, with_for_update=True)
         assert parent is not None
-        await coordinator(integration_database)._start_classifiers(session, parent, now)
+        await coordinator(integration_database).start_classifiers(session, parent, now)
 
     async with integration_database() as session:
         news = await session.get(News, news_id)
