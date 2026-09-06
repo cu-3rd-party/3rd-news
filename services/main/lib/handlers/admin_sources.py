@@ -8,7 +8,7 @@ from lib.core.service_factory import service_factory
 from lib.dto.requests import (
     SourceInput,
 )
-from lib.infra.storage.postgres.repositories.source_repository import SourceRepository
+from lib.interactor.interfaces.storage.source import SourceStorage
 from lib.interactor.errors import ConflictError, NotFoundError
 
 from .common import actor, error_status
@@ -17,7 +17,7 @@ from .dependencies import AdminPrincipal, DbSession, EditorPrincipal
 router = APIRouter()
 
 
-def source_storage(session: DbSession) -> SourceRepository:
+def source_storage(session: DbSession) -> SourceStorage:
     return service_factory.source(session)
 
 

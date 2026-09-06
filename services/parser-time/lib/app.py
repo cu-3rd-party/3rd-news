@@ -8,13 +8,14 @@ from .core.app_init import init_app_state, init_middleware, init_router
 from .core.config import Settings, get_settings
 from .core.logging import configure_logging
 from .infra.resources import AppResources
+from .interactor.interfaces.clients.parser_application import ParserApplication
 
 STATIC_DIR = Path(__file__).parent / "static"
 
 
 def create_app(settings_override: Settings | None = None) -> FastAPI:
     settings = settings_override or get_settings()
-    resources_holder: list[AppResources] = []
+    resources_holder: list[ParserApplication] = []
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None]:

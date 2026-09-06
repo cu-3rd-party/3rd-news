@@ -8,9 +8,7 @@ from lib.core.service_factory import service_factory
 from lib.dto.requests import (
     EditorialRuleInput,
 )
-from lib.infra.storage.postgres.repositories.editorial_rule_repository import (
-    EditorialRuleRepository,
-)
+from lib.interactor.interfaces.storage.editorial_rule import EditorialRuleStorage
 from lib.interactor.errors import ConflictError, NotFoundError, ValidationError
 
 from .common import actor, error_status
@@ -19,7 +17,7 @@ from .dependencies import AdminPrincipal, DbSession
 router = APIRouter()
 
 
-def editorial_rule_storage(session: DbSession) -> EditorialRuleRepository:
+def editorial_rule_storage(session: DbSession) -> EditorialRuleStorage:
     return service_factory.editorial_rule(session)
 
 

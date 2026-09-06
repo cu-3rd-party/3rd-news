@@ -7,7 +7,7 @@ from lib.dto.requests import (
     AutoPublishInput,
     ContextInput,
 )
-from lib.infra.storage.postgres.repositories.context_repository import ContextRepository
+from lib.interactor.interfaces.storage.context import ContextStorage
 
 from .common import actor
 from .dependencies import AdminPrincipal, DbSession, EditorPrincipal
@@ -15,7 +15,7 @@ from .dependencies import AdminPrincipal, DbSession, EditorPrincipal
 router = APIRouter()
 
 
-def context_storage(session: DbSession) -> ContextRepository:
+def context_storage(session: DbSession) -> ContextStorage:
     return service_factory.context(session)
 
 

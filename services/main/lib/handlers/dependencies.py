@@ -6,8 +6,8 @@ from typing import Annotated, Any
 from fastapi import Depends, HTTPException, Request
 
 from lib.core.service_factory import service_factory
-from lib.infra.clients.auth import Principal
-from lib.infra.clients.auth.service import SESSION_COOKIE
+from lib.dto.principal import Principal
+from lib.core.config import AUTH_AUTH_SESSION_COOKIE
 
 
 async def session(request: Request) -> AsyncIterator[Any]:
@@ -40,7 +40,7 @@ def require(*scopes: str) -> Callable:
             csrf = request.headers.get("x-csrf-token", "")
             if not csrf or csrf != request.cookies.get("thirdnews_csrf"):
                 raise HTTPException(403, "CSRF validation failed")
-            raw_session = request.cookies.get(SESSION_COOKIE, "")
+            raw_session = request.cookies.get(AUTH_SESSION_COOKIE, "")
             row = await service_factory.auth_account(session).find_session_by_hash(
                 request.app.state.auth.hash_secret(raw_session)
             )

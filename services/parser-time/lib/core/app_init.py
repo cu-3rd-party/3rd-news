@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from ..handlers.top import create_router
-from ..infra.resources import AppResources
+from ..interactor.interfaces.clients.parser_application import ParserApplication
 from .config import Settings
 from .middleware import (
     ErrorHandlingMiddleware,
@@ -29,7 +29,7 @@ def init_middleware(app: FastAPI, settings: Settings) -> None:
 
 def init_router(
     app: FastAPI,
-    resources_holder: list[AppResources],
+    resources_holder: list[ParserApplication],
     static_dir: Path,
 ) -> None:
     app.include_router(create_router(resources_holder, static_dir))

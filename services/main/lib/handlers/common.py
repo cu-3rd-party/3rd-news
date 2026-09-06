@@ -5,9 +5,7 @@ from datetime import UTC, datetime
 from fastapi import HTTPException
 
 from lib.core.service_factory import service_factory
-from lib.infra.clients.auth.service import (
-    Principal,
-)
+from lib.dto.principal import Principal
 from lib.interactor.errors import ConflictError, NotFoundError
 
 

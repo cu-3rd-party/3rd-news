@@ -5,12 +5,13 @@ from fastapi import APIRouter, HTTPException, Query
 from ..domain.entities.selection import Selection
 from ..dto.select_in import SelectIn
 from ..dto.selection_out import SelectionOut
-from ..infra.resources import AppResources
+from ..interactor.interfaces.clients.parser_application import ParserApplication
 from .common import parse_ref, resources_from
 
 
-def selected_output(resources: AppResources) -> list[SelectionOut]:
-    runs = resources.storage.runs()
+def selected_output(resources: ParserApplication) -> list[SelectionOut]:
+    storage = resources.selections()
+    runs = storage.runs()
     return [
         SelectionOut(
             team=selection.team,
@@ -21,7 +22,7 @@ def selected_output(resources: AppResources) -> list[SelectionOut]:
             authors=selection.authors,
             last_run=run_output(runs[selection.key]) if selection.key in runs else None,
         )
-        for selection in resources.storage.selected()
+        for selection in storage.selected()
     ]
 
 
@@ -35,7 +36,7 @@ def run_output(result: Any) -> dict[str, Any]:
     }
 
 
-def create_router(holder: list[AppResources]) -> APIRouter:
+def create_router(holder: list[ParserApplication]) -> APIRouter:
     router = APIRouter(prefix="/channels/selected")
 
     @router.get("", response_model=list[SelectionOut])
@@ -45,17 +46,16 @@ def create_router(holder: list[AppResources]) -> APIRouter:
     @router.post("", response_model=list[SelectionOut])
     async def add_selected(payload: SelectIn) -> list[SelectionOut]:
         resources = resources_from(holder)
-        async with resources.time_client() as client:
-            known = {
-                (channel["_team_name"], channel["name"]): channel
-                for channel in await resources.catalog.fetch(client)
-            }
+        known = {
+            (channel["_team_name"], channel["name"]): channel
+            for channel in await resources.list_channels()
+        }
         for value in payload.channels:
             ref = parse_ref(value)
             channel = known.get((ref.team, ref.channel))
             if channel is None:
                 raise HTTPException(status_code=404, detail="канал не найден")
-            resources.storage.add(
+            resources.selections().add(
                 Selection(
                     team=ref.team,
                     channel=ref.channel,
@@ -67,11 +67,10 @@ def create_router(holder: list[AppResources]) -> APIRouter:
     @router.put("", response_model=list[SelectionOut])
     async def replace_selected(payload: SelectIn) -> list[SelectionOut]:
         resources = resources_from(holder)
-        async with resources.time_client() as client:
-            known = {
-                (channel["_team_name"], channel["name"]): channel
-                for channel in await resources.catalog.fetch(client)
-            }
+        known = {
+            (channel["_team_name"], channel["name"]): channel
+            for channel in await resources.list_channels()
+        }
         selections: list[Selection] = []
         for value in payload.channels:
             ref = parse_ref(value)
@@ -85,14 +84,14 @@ def create_router(holder: list[AppResources]) -> APIRouter:
                     display_name=channel.get("display_name") or ref.channel,
                 )
             )
-        resources.storage.replace_all(selections)
+        resources.selections().replace_all(selections)
         return selected_output(resources)
 
     @router.delete("", status_code=204, response_model=None)
     async def remove_selected(channel: str = Query()) -> None:
         resources = resources_from(holder)
         ref = parse_ref(channel)
-        if not resources.storage.remove(ref.team, ref.channel):
+        if not resources.selections().remove(ref.team, ref.channel):
             raise HTTPException(status_code=404, detail="этот канал не выбран")
 
     @router.patch("", response_model=list[SelectionOut])
@@ -102,7 +101,7 @@ def create_router(holder: list[AppResources]) -> APIRouter:
     ) -> list[SelectionOut]:
         resources = resources_from(holder)
         ref = parse_ref(channel)
-        if not resources.storage.set_authors(ref.team, ref.channel, authors):
+        if not resources.selections().set_authors(ref.team, ref.channel, authors):
             raise HTTPException(status_code=404, detail="этот канал не выбран")
         return selected_output(resources)
 

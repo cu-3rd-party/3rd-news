@@ -13,7 +13,6 @@ from lib.dto.requests import (
     AdminNewsCreate,
     NewsEdit,
 )
-from lib.infra.storage.postgres.news_administration import SqlAlchemyNewsLifecycleStorage
 from lib.interactor.errors import ConflictError, NotFoundError, ValidationError
 from lib.interactor.use_cases.news_lifecycle import NewsLifecycle
 
@@ -153,7 +152,7 @@ async def reprocess(
     session: DbSession,
     principal: EditorPrincipal,
 ) -> dict:
-    service = NewsLifecycle(SqlAlchemyNewsLifecycleStorage(request.app.state.settings.max_attempts))
+    service = NewsLifecycle(service_factory.news_lifecycle(request.app.state.settings.max_attempts))
     repository = service_factory.news_admin(session)
     try:
         news = await service.get(session, news_id, lock=True)

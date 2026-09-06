@@ -12,8 +12,7 @@ from lib.dto.requests import (
     ClassifierPatch,
     ClassifierSigningKeyInput,
 )
-from lib.infra.clients.http import SafeFetcher, UrlPolicy
-from lib.infra.storage.postgres.repositories.classifier_repository import ClassifierRepository
+from lib.interactor.interfaces.storage.classifier import ClassifierStorage
 from lib.interactor.errors import ConflictError, NotFoundError, ValidationError
 
 from .common import actor, error_status
@@ -22,7 +21,7 @@ from .dependencies import AdminPrincipal, DbSession
 router = APIRouter()
 
 
-def classifier_storage(session: DbSession) -> ClassifierRepository:
+def classifier_storage(session: DbSession) -> ClassifierStorage:
     return service_factory.classifier(session)
 
 
@@ -131,16 +130,15 @@ async def probe_classifier(
     host = urlsplit(endpoint).hostname
     if not host:
         raise HTTPException(422, "classifier endpoint has no host")
-    fetcher = SafeFetcher(
-        policy=UrlPolicy.with_service_hosts(
-            request.app.state.settings.classifier_service_hosts,
-            max_redirects=request.app.state.settings.fetch_max_redirects,
-        ),
+    settings = request.app.state.settings
+    fetcher = service_factory.fetcher(
+        settings,
+        settings.classifier_service_hosts,
         timeout_seconds=min(
             timeout_seconds,
-            request.app.state.settings.classifier_request_timeout_seconds,
+            settings.classifier_request_timeout_seconds,
         ),
-        max_bytes=request.app.state.settings.classifier_response_max_bytes,
+        max_bytes=settings.classifier_response_max_bytes,
     )
     try:
         result = await fetcher.fetch_bytes(f"{endpoint}/manifest")

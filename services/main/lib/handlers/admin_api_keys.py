@@ -8,7 +8,7 @@ from lib.core.service_factory import service_factory
 from lib.dto.requests import (
     ApiKeyInput,
 )
-from lib.infra.storage.postgres.repositories.api_key_repository import ApiKeyRepository
+from lib.interactor.interfaces.storage.api_key import ApiKeyStorage
 from lib.interactor.errors import ConflictError, NotFoundError
 
 from .common import actor, error_status
@@ -17,7 +17,7 @@ from .dependencies import AdminPrincipal, DbSession
 router = APIRouter()
 
 
-def api_key_storage(session: DbSession) -> ApiKeyRepository:
+def api_key_storage(session: DbSession) -> ApiKeyStorage:
     return service_factory.api_key(session)
 
 

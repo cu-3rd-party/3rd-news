@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from lib.core.service_factory import service_factory
-from lib.infra.clients.auth import Principal
+from lib.dto.principal import Principal
 from lib.interactor.use_cases.processing.raw_payloads import RawPayloadProtector
 
 from .common import actor

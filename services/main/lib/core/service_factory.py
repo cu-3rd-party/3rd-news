@@ -104,13 +104,20 @@ class ServiceFactory:
     def pipeline(self) -> SqlAlchemyPipelineStorage:
         return SqlAlchemyPipelineStorage()
 
-    def fetcher(self, settings: Any, hosts: list[str]) -> SafeFetcher:
+    def fetcher(
+        self,
+        settings: Any,
+        hosts: list[str],
+        *,
+        timeout_seconds: float | None = None,
+        max_bytes: int | None = None,
+    ) -> SafeFetcher:
         return SafeFetcher(
             policy=UrlPolicy.with_service_hosts(
                 hosts, max_redirects=settings.fetch_max_redirects
             ),
-            timeout_seconds=settings.fetch_timeout_seconds,
-            max_bytes=settings.fetch_max_bytes,
+            timeout_seconds=timeout_seconds or settings.fetch_timeout_seconds,
+            max_bytes=max_bytes or settings.fetch_max_bytes,
         )
 
     def dead_letters(self, settings: Any) -> DeadLetters:

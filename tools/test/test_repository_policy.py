@@ -91,6 +91,15 @@ def relative(path: Path) -> str:
     return str(path.relative_to(ROOT))
 
 
+def architecture_root(path: Path) -> tuple[str, ...]:
+    parts = path.relative_to(ROOT).parts
+    if parts[0] == "services":
+        return parts[:2]
+    if parts[:3] == ("packages", "python", "contracts"):
+        return parts[:3]
+    return parts[:1]
+
+
 def dotted_name(node: ast.expr) -> str:
     if isinstance(node, ast.Name):
         return node.id
@@ -589,12 +598,12 @@ def test_settings_use_fixed_env_files_and_atomic_connections() -> None:
 
 
 def test_boundary_implementations_explicitly_inherit_interfaces() -> None:
-    interface_names = set()
+    interface_names: dict[tuple[str, ...], set[str]] = {}
     for path in python_files():
         if "interactor" not in path.parts or "interfaces" not in path.parts:
             continue
         tree = ast.parse(path.read_text())
-        interface_names.update(
+        interface_names.setdefault(architecture_root(path), set()).update(
             node.name
             for node in tree.body
             if isinstance(node, ast.ClassDef) and not node.name.startswith("_")
@@ -618,7 +627,7 @@ def test_boundary_implementations_explicitly_inherit_interfaces() -> None:
             if node.name == "Base" or node.name.endswith(("Parser", "RepositoryBase", "Resolver")):
                 continue
             bases = {dotted_name(base).split(".")[-1] for base in node.bases}
-            if not bases & interface_names:
+            if not bases & interface_names.get(architecture_root(path), set()):
                 errors.append(
                     f"{relative(path)}:{node.lineno} {node.name} must inherit an interface"
                 )

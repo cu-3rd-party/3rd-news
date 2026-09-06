@@ -3,7 +3,7 @@ from typing import Any
 from fastapi import HTTPException
 
 from lib.core.service_factory import service_factory
-from lib.infra.clients.auth import Principal
+from lib.dto.principal import Principal
 from lib.interactor.errors import NotFoundError
 
 

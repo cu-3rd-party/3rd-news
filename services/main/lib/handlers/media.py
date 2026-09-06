@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 
 from lib.core.service_factory import service_factory
-from lib.infra.clients.auth import Principal
+from lib.dto.principal import Principal
 from lib.interactor.errors import NotFoundError
 
 from .access_policy import enforce_news_access, enforce_visibility_barrier
