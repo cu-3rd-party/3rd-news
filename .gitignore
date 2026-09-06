@@ -1,4 +1,3 @@
-# Python
 __pycache__/
 *.pyc
 .venv/
@@ -10,14 +9,19 @@ build/
 
 .claude
 
-# Node / frontend
 node_modules/
 dist/
 *.tsbuildinfo
 
-# Local config and data
 .env
-# Куки TiMe и прочие локальные секреты парсеров.
 .env.local
 *.env.local
 data/
+.coverage
+.coverage.*
+htmlcov/
+mutants/
+.hypothesis/
+.benchmarks/
+artifacts/
+infra/.runtime/

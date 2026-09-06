@@ -1,150 +1,391 @@
-name: 3rd-news
+name: thirdnews-v2
 
-# Every service builds from the repository root so it can install the shared
-# contracts package. Services are independent containers: run only `main` and
-# `postgres` if that is all you need, or run a classifier from another repo
-# entirely and just register its URL in the admin.
-
-x-main-env: &main-env
-  NEWS_DATABASE_URL: postgresql+asyncpg://news:news@postgres:5432/news
-  NEWS_REDIS_URL: redis://redis:6379/0
-  NEWS_MEDIA_ROOT: /data/media
-  NEWS_SECRET_KEY: ${NEWS_SECRET_KEY:-dev-secret-change-me}
-  NEWS_PUBLIC_BASE_URL: ${NEWS_PUBLIC_BASE_URL:-http://main:8000}
-  NEWS_ENVIRONMENT: ${NEWS_ENVIRONMENT:-development}
-  NEWS_BOOTSTRAP_ADMIN_EMAIL: ${NEWS_BOOTSTRAP_ADMIN_EMAIL:-admin@example.edu}
-  NEWS_BOOTSTRAP_ADMIN_PASSWORD: ${NEWS_BOOTSTRAP_ADMIN_PASSWORD:-admin}
-  NEWS_CORS_ORIGINS: '["http://localhost:5173"]'
+x-core: &core
+  image: thirdnews-v2-core
+  build:
+    context: .
+    dockerfile: services/main/Dockerfile
+  environment:
+    ENVIRONMENT: ${ENVIRONMENT:-development}
+  volumes:
+    - core-config:/run/config:ro
+  restart: unless-stopped
+  mem_limit: 512m
+  cpus: 1.0
+  pids_limit: 256
+  init: true
+  read_only: true
+  tmpfs: [/tmp]
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  networks: [internal, egress]
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+    broker:
+      condition: service_healthy
+    file:
+      condition: service_started
+    search:
+      condition: service_healthy
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: news
-      POSTGRES_PASSWORD: news
-      POSTGRES_DB: news
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U news"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-    ports:
-      - "127.0.0.1:5432:5432"
-
-  redis:
-    image: redis:7-alpine
-    command: ["redis-server", "--appendonly", "yes"]
-    volumes:
-      - redisdata:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
-  main:
+  init:
+    mem_limit: 256m
+    cpus: 1.0
+    pids_limit: 256
+    image: thirdnews-v2-core
     build:
       context: .
       dockerfile: services/main/Dockerfile
-    command: ["api"]
-    environment: *main-env
+    user: "0:0"
+    environment:
+      SERVICE_MODE: initialize
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DB_SCHEME: ${DB_SCHEME:-postgresql+asyncpg}
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-news}
+      DB_USER: ${DB_USER:-news}
+      BROKER_SCHEME: ${BROKER_SCHEME:-nats}
+      BROKER_HOST: ${BROKER_HOST:-broker}
+      BROKER_PORT: ${BROKER_PORT:-4222}
+      SEARCH_SCHEME: ${SEARCH_SCHEME:-http}
+      SEARCH_HOST: ${SEARCH_HOST:-search}
+      SEARCH_PORT: ${SEARCH_PORT:-7700}
+      FILE_SCHEME: ${FILE_SCHEME:-http}
+      FILE_HOST: ${FILE_HOST:-file}
+      FILE_PORT: ${FILE_PORT:-3900}
+      FILE_BUCKET: ${FILE_BUCKET:-news}
+      FILE_REGION: ${FILE_REGION:-garage}
+      PUBLIC_API_SCHEME: ${PUBLIC_API_SCHEME:-http}
+      PUBLIC_API_HOST: ${PUBLIC_API_HOST:-api}
+      PUBLIC_API_PORT: ${PUBLIC_API_PORT:-8000}
+      FILE_PUBLIC_SCHEME: ${FILE_PUBLIC_SCHEME:-http}
+      FILE_PUBLIC_HOST: ${FILE_PUBLIC_HOST:-localhost}
+      FILE_PUBLIC_PORT: ${FILE_PUBLIC_PORT:-8081}
+      CLASSIFIER_SPECS: >-
+        [{"node_id":"classifier-ai","slug":"ai-openai-compatible","name":"classifier-ai","endpoint":"http://classifier-ai:8000","allowed_axes":[],"config":{"node_id":"classifier-ai"},"enabled":true,"shadow":false,"priority":100,"min_confidence":0.5,"timeout_seconds":180},{"node_id":"classifier-regex","slug":"regex","name":"classifier-regex","endpoint":"http://classifier-regex:8000","allowed_axes":[],"config":{"node_id":"classifier-regex"},"enabled":true,"shadow":false,"priority":50,"min_confidence":0.5,"timeout_seconds":30}]
+    restart: "no"
+    network_mode: none
     volumes:
-      - media:/data/media
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    ports:
-      - "127.0.0.1:8000:8000"
+      - core-config:/config/core
+      - db-config:/config/db
+      - broker-config:/config/broker
+      - search-config:/config/search
+      - file-config:/config/file
+      - classifier-ai-config:/config/classifier-ai
+      - classifier-regex-config:/config/classifier-regex
 
-  worker:
+  db:
+    mem_limit: 1g
+    cpus: 2.0
+    pids_limit: 256
+    image: postgres:18-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2
+    entrypoint: [/bin/sh, -c, 'set -a; . /run/config/db.env; exec docker-entrypoint.sh postgres']
+    volumes:
+      - db-config:/run/config:ro
+      - db-data:/var/lib/postgresql
+    networks: [internal]
+    restart: unless-stopped
+    depends_on:
+      init: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U news -d news]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  broker:
+    mem_limit: 256m
+    cpus: 1.0
+    pids_limit: 256
+    image: nats:alpine@sha256:ad7a43eb7e3337c3c38ce5d784d1461791f95f730f252d2b25eee699752a0ca3
+    command: [nats-server, --config, /run/config/nats.conf]
+    volumes:
+      - broker-config:/run/config:ro
+      - broker-data:/data
+    networks: [internal]
+    restart: unless-stopped
+    depends_on:
+      init: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD-SHELL, 'wget -q -O /dev/null http://127.0.0.1:8222/healthz']
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  search:
+    mem_limit: 768m
+    cpus: 2.0
+    pids_limit: 256
+    image: getmeili/meilisearch@sha256:8d6643d86d71fad6ad3cba92cde7ccfce9e4d6c384bda67598eb553571c32431
+    entrypoint: [/bin/sh, -c, 'set -a; . /run/config/search.env; exec /bin/meilisearch']
+    environment:
+      MEILI_ENV: production
+      MEILI_NO_ANALYTICS: 'true'
+      MEILI_MAX_INDEXING_MEMORY: 256MiB
+    volumes:
+      - search-config:/run/config:ro
+      - search-data:/meili_data
+    networks: [internal]
+    restart: unless-stopped
+    depends_on:
+      init: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD-SHELL, 'curl -fsS http://127.0.0.1:7700/health >/dev/null']
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  file:
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 256
+    build:
+      context: .
+      dockerfile: infra/garage/Dockerfile
+    volumes:
+      - file-config:/run/config:ro
+      - file-data:/data
+    networks: [internal]
+    restart: unless-stopped
+    depends_on:
+      init: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, /garage, -c, /run/config/garage.toml, status]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  migrate:
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 256
+    image: thirdnews-v2-core
     build:
       context: .
       dockerfile: services/main/Dockerfile
-    command: ["worker"]
-    environment: *main-env
-    volumes:
-      - media:/data/media
-    depends_on:
-      main:
-        condition: service_started
-
-  classifier-regex:
-    build:
-      context: .
-      dockerfile: services/classifier-regex/Dockerfile
     environment:
-      CLASSIFIER_SECRET: ${REGEX_CLASSIFIER_SECRET:-dev-regex-secret}
-    ports:
-      - "127.0.0.1:8101:8000"
+      SERVICE_MODE: migrate
+    volumes:
+      - core-config:/run/config:ro
+    networks: [internal]
+    restart: "no"
+    depends_on:
+      db: {condition: service_healthy}
+
+  api:
+    <<: *core
+    environment:
+      SERVICE_MODE: api
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+    healthcheck:
+      test: [CMD, thirdnews-healthcheck]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  worker-outbox:
+    <<: *core
+    environment:
+      SERVICE_MODE: worker-outbox
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+  worker-pipeline:
+    <<: *core
+    environment:
+      SERVICE_MODE: worker-pipeline
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+  worker-index:
+    <<: *core
+    environment:
+      SERVICE_MODE: worker-index
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+
+  ollama:
+    mem_limit: 2g
+    cpus: 2.0
+    pids_limit: 256
+    image: ollama/ollama@sha256:32931b46719f673c05fdbaa81ccb26da18ea4a1c57590a754874ab28ba269eb2
+    volumes: [model-data:/root/.ollama]
+    networks: [internal, egress]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, ollama, list]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+  model-init:
+    mem_limit: 256m
+    cpus: 1.0
+    pids_limit: 256
+    image: ollama/ollama@sha256:32931b46719f673c05fdbaa81ccb26da18ea4a1c57590a754874ab28ba269eb2
+    entrypoint: [ollama, pull, 'qwen3:0.6b']
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    networks: [internal]
+    restart: "no"
+    depends_on:
+      ollama: {condition: service_healthy}
 
   classifier-ai:
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 256
     build:
       context: .
       dockerfile: services/classifier-ai/Dockerfile
     environment:
-      CLASSIFIER_SECRET: ${AI_CLASSIFIER_SECRET:-dev-ai-secret}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-anthropic/claude-haiku-4.5}
-    ports:
-      - "127.0.0.1:8102:8000"
-
-  # Example parser. Disabled until FEEDS is set; copy the block for your own.
-  parser-rss:
+      OPENAI_SCHEME: http
+      OPENAI_HOST: ollama
+      OPENAI_PORT: "11434"
+      OPENAI_PATH: /v1
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: qwen3:0.6b
+      OPENAI_REASONING_EFFORT: none
+      PROVIDER_PROTOCOL: ollama-native
+      OLLAMA_SCHEME: http
+      OLLAMA_HOST: ollama
+      OLLAMA_PORT: "11434"
+      OPENAI_RESPONSE_FORMAT: json_schema
+      OPENAI_TIMEOUT_S: "210"
+      MAX_OUTPUT_TOKENS: "256"
+    volumes: [classifier-ai-config:/run/config:ro]
+    networks: [internal]
+    restart: unless-stopped
+    depends_on:
+      model-init: {condition: service_completed_successfully}
+  classifier-regex:
+    mem_limit: 256m
+    cpus: 1.0
+    pids_limit: 256
     build:
       context: .
-      dockerfile: parsers/rss/Dockerfile
+      dockerfile: services/classifier-regex/Dockerfile
+    volumes: [classifier-regex-config:/run/config:ro]
+    depends_on:
+      init: {condition: service_completed_successfully}
+    networks: [internal]
+    restart: unless-stopped
+
+  parser-rss:
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 256
+    profiles: [parsers]
+    build:
+      context: .
+      dockerfile: services/parser-rss/Dockerfile
     environment:
-      NEWS_URL: http://main:8000
-      NEWS_API_KEY: ${RSS_PARSER_API_KEY:-}
+      NEWS_SCHEME: http
+      NEWS_HOST: api
+      NEWS_PORT: "8000"
+      NEWS_API_KEY: ${PARSER_NEWS_API_KEY:-}
       FEEDS: ${RSS_FEEDS:-}
       POLL_INTERVAL_S: ${RSS_POLL_INTERVAL_S:-600}
+      MAX_AGE_DAYS: ${RSS_MAX_AGE_DAYS:-30}
+    networks: [internal, egress]
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
     depends_on:
-      main:
-        condition: service_started
-    profiles: ["parsers"]
+      api: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, parser-rss-healthcheck]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
-  # Парсер каналов TiMe. Куки берутся из браузера, см. parsers/time/README.md.
   parser-time:
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 256
+    profiles: [parsers]
     build:
       context: .
-      dockerfile: parsers/time/Dockerfile
-    # TIME_COOKIE / TIME_CSRF / TIME_TOKEN / TIME_CHANNELS живут здесь, а не в
-    # .env: куки — секрет одного парсера, и лежат они рядом с ним, в
-    # gitignored-файле. Значения из environment ниже перебили бы env_file,
-    # поэтому TIME_* тут намеренно не перечислены.
-    env_file:
-      - path: parsers/time/.env.local
-        required: false
+      dockerfile: services/parser-time/Dockerfile
     environment:
-      NEWS_URL: http://main:8000
-      NEWS_API_KEY: ${TIME_PARSER_API_KEY:-}
-      POLL_INTERVAL_S: ${TIME_POLL_INTERVAL_S:-600}
-      STATE_PATH: /data/state.json
-      PARSER_API_TOKEN: ${TIME_PARSER_API_TOKEN:-}
-    volumes:
-      - time_state:/data
-    ports:
-      - "127.0.0.1:8201:8000"
+      NEWS_SCHEME: http
+      NEWS_HOST: api
+      NEWS_PORT: "8000"
+      NEWS_API_KEY: ${PARSER_NEWS_API_KEY:-}
+      TIME_SCHEME: ${TIME_SCHEME:-https}
+      TIME_HOST: ${TIME_HOST:-time.cu.ru}
+      TIME_PORT: ${TIME_PORT:-443}
+      TIME_COOKIE: ${TIME_COOKIE:-}
+      TIME_CSRF: ${TIME_CSRF:-}
+      TIME_TOKEN: ${TIME_TOKEN:-}
+      TIME_CHANNELS: ${TIME_CHANNELS:-}
+      PARSER_API_TOKEN: ${PARSER_API_TOKEN:-}
+    volumes: [parser-time-data:/data]
+    networks: [internal, egress]
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
     depends_on:
-      main:
-        condition: service_started
-    profiles: ["parsers"]
+      api: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, parser-time-healthcheck]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
-  admin-ui:
+  web:
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 256
     build:
-      context: ./admin-ui
+      context: .
+      dockerfile: infra/caddy/Dockerfile
+      target: web
+    networks: [internal]
+    restart: unless-stopped
+  proxy:
+    mem_limit: 256m
+    cpus: 1.0
+    pids_limit: 256
+    image: thirdnews-v2-proxy
+    build:
+      context: .
+      dockerfile: infra/caddy/Dockerfile
+      target: runtime
     environment:
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+      SITE_ADDRESS: ${SITE_ADDRESS:-:8080}
+      UPLOAD_ADDRESS: ${UPLOAD_ADDRESS:-:8081}
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - proxy-data:/data
     ports:
-      - "127.0.0.1:5173:5173"
-    profiles: ["ui"]
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8081:8081"
+    networks: [internal, egress]
+    restart: unless-stopped
+    depends_on:
+      api: {condition: service_healthy}
+      web: {condition: service_started}
 
+networks:
+  internal:
+    internal: true
+  egress: {}
 volumes:
-  time_state:
-  pgdata:
-  redisdata:
-  media:
+  core-config: {}
+  db-config: {}
+  broker-config: {}
+  search-config: {}
+  file-config: {}
+  db-data: {}
+  broker-data: {}
+  search-data: {}
+  file-data: {}
+  model-data: {}
+  classifier-ai-config: {}
+  classifier-regex-config: {}
+  parser-time-data: {}
+  proxy-data: {}

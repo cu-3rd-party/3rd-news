@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Каналы TiMe · 3rd-news</title>
+    <style>
+      
+      :root {
+        --bg: #f6f7f9; --card: #fff; --line: #d8dce3; --text: #1c2128;
+        --muted: #6b7280; --accent: #2563eb; --danger: #b91c1c; --ok: #15803d;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        font-size: 14px;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); }
+      header {
+        display: flex; align-items: center; gap: 1rem; padding: .6rem 1rem;
+        background: var(--card); border-bottom: 1px solid var(--line);
+        position: sticky; top: 0; z-index: 10; flex-wrap: wrap;
+      }
+      main { padding: 1rem; display: grid; grid-template-columns: 1fr 22rem; gap: 1rem; align-items: start; }
+      @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+      .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: .8rem 1rem; }
+      button {
+        font: inherit; padding: .35rem .7rem; border: 1px solid var(--line);
+        border-radius: 6px; background: var(--card); cursor: pointer;
+      }
+      button:hover:not(:disabled) { border-color: var(--accent); }
+      button:disabled { opacity: .5; cursor: default; }
+      button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+      button.link { border: none; background: none; color: var(--accent); padding: 0 .3rem; }
+      button.link.danger { color: var(--danger); }
+      input, select { font: inherit; padding: .35rem .5rem; border: 1px solid var(--line); border-radius: 6px; background: var(--card); }
+      input[type="search"] { min-width: 16rem; }
+      label.chip { display: inline-flex; align-items: center; gap: .3rem; padding: .25rem .6rem;
+        border: 1px solid var(--line); border-radius: 999px; cursor: pointer; font-size: .9em; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+      th { color: var(--muted); font-weight: 500; }
+      td.num { text-align: right; font-variant-numeric: tabular-nums; }
+      .muted { color: var(--muted); }
+      .error { color: var(--danger); }
+      .ok { color: var(--ok); }
+      .name { font-weight: 500; }
+      .slug { color: var(--muted); font-size: .85em; }
+      .row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+      .selected-item { padding: .5rem 0; border-bottom: 1px solid var(--line); }
+      .toolbar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: .8rem; }
+      dialog { border: 1px solid var(--line); border-radius: 8px; padding: 1.2rem; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong>Каналы TiMe</strong>
+      <span id="status" class="muted"></span>
+      <span style="margin-left:auto" class="row">
+        <button id="refresh" title="Перечитать список из TiMe, минуя кэш">Обновить список</button>
+        <button id="settings" class="link">Токен</button>
+      </span>
+    </header>
+
+    <main>
+      <section class="card">
+        <div class="toolbar">
+          <input type="search" id="q" placeholder="поиск по названию, имени и описанию" />
+          <label class="chip"><input type="checkbox" id="only_with_posts" checked /> только с постами</label>
+          <label class="chip"><input type="checkbox" id="only_joined" /> где я состою</label>
+          <label class="chip"><input type="checkbox" id="only_selected" /> только выбранные</label>
+          <select id="active">
+            <option value="">за всё время</option>
+            <option value="30">активные за 30 дней</option>
+            <option value="90">активные за 90 дней</option>
+            <option value="365">активные за год</option>
+          </select>
+          <select id="sort">
+            <option value="activity">по активности</option>
+            <option value="messages">по числу сообщений</option>
+            <option value="name">по названию</option>
+          </select>
+        </div>
+
+        <div id="listStatus" class="muted">Загрузка…</div>
+        <table id="table" hidden>
+          <thead>
+            <tr>
+              <th style="width:2rem"></th>
+              <th>Канал</th>
+              <th class="num">Сообщений</th>
+              <th>Последний пост</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+
+        <div class="row" style="margin-top:.8rem">
+          <button id="prev">← назад</button>
+          <span id="page" class="muted"></span>
+          <button id="next">вперёд →</button>
+        </div>
+      </section>
+
+      <aside class="card">
+        <h3 style="margin-top:0">Парсим сейчас</h3>
+        <div id="selected"></div>
+        <div class="row" style="margin-top:.8rem">
+          <button id="poll" class="primary">Прогнать сейчас</button>
+        </div>
+        <div class="row" style="margin-top:.5rem">
+          <label class="muted">затянуть историю за
+            <input type="number" id="days" value="365" min="1" style="width:5rem" /> дней
+          </label>
+          <button id="backfill">Затянуть</button>
+        </div>
+        <p class="muted" style="margin-bottom:0">
+          Фоновый опрос идёт сам; кнопки нужны, когда только что добавили канал.
+        </p>
+        <div id="pollResult" style="margin-top:.5rem"></div>
+      </aside>
+    </main>
+
+    <dialog id="tokenDialog">
+      <form method="dialog">
+        <p>Токен парсера (<code>PARSER_API_TOKEN</code>):</p>
+        <input type="password" id="tokenInput" style="width:22rem" />
+        <div class="row" style="margin-top:.8rem">
+          <button value="save" class="primary">Сохранить</button>
+          <button value="cancel">Отмена</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>

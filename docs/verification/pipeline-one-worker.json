@@ -1,0 +1,33 @@
+{
+  "accept_latency_ms": {
+    "max": 410.44,
+    "p50": 314.77,
+    "p95": 399.93
+  },
+  "classification_exercised": false,
+  "concurrency": 10,
+  "count": 20,
+  "ingest_statuses": {
+    "accepted": 20
+  },
+  "interpretation": "queue/outbox/pipeline baseline; source.skip_classification=true; excludes AI",
+  "mode": "queue",
+  "negative_auth_checks": {
+    "cookie_csrf": "passed:403",
+    "revoked_api_key": "passed:401",
+    "unauthenticated_ingest": "passed:401"
+  },
+  "news_statuses": {
+    "published": 20
+  },
+  "pipeline_latency_ms": {
+    "max": 11197.47,
+    "p50": 11165.08,
+    "p95": 11196.32
+  },
+  "run_id": "queue-w1-20260906-0227",
+  "schema": "thirdnews.pipeline-load.v1",
+  "throughput_items_per_second": 1.786,
+  "wall_seconds": 11.199,
+  "worker_pipeline_replicas_label": 1
+}

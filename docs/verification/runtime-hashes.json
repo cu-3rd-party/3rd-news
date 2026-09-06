@@ -1,0 +1,6 @@
+{
+  "infra/nats/outbox.py": "ba73cc9258e46a5578fe9ecf3c1d419434307803057ca557f08e9bd47dd5875f",
+  "core/config.py": "ac1e917e8e3877bfc5e3cfaa434d04a9d46738767060c8cee92d09606cfd3753",
+  "infra/postgres/repositories/taxonomy_repository.py": "8cdc4b5b09f593cde0168ad6030f2960f46f230370ceb8729db902d6725ccaa0",
+  "interactor/processing/pipeline.py": "129547ebcf2d0fb4ab26677e53edfa09a14f00c9864cffa017c9ffb2536e1ef8"
+}

@@ -1,0 +1,45 @@
+{
+	admin off
+	log default {
+		format filter {
+			request delete
+			resp_headers delete
+			wrap json
+		}
+	}
+}
+
+{$SITE_ADDRESS::8080} {
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		X-Frame-Options DENY
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
+		-Server
+	}
+	request_body {
+		max_size 8MB
+	}
+	@backend path /api/* /media/* /health/*
+	handle @backend {
+		reverse_proxy api:8000
+	}
+	handle {
+		reverse_proxy web:80
+	}
+}
+
+{$UPLOAD_ADDRESS::8081} {
+	request_body {
+		max_size 50MB
+	}
+	@upload method PUT
+	handle @upload {
+		reverse_proxy file:3900 {
+			transport http {
+				keepalive off
+			}
+		}
+	}
+	respond 405
+}

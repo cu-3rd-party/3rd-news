@@ -1,0 +1,9 @@
+from typing import Any, Protocol
+
+
+class ContextStorage(Protocol):
+    async def get_setting(self, key: str) -> dict[str, Any] | None: ...
+
+    async def set_setting(self, key: str, value: dict[str, Any], actor: str) -> dict[str, Any]: ...
+
+    async def classification_context(self) -> dict[str, Any]: ...
