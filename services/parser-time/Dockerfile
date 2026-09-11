@@ -10,6 +10,10 @@ COPY services/parser-time/lib services/parser-time/lib
 WORKDIR /srv/services/parser-time
 RUN uv sync --frozen --no-dev --no-editable
 COPY services/parser-time/main.py main.py
+# Каталог состояния создаётся здесь, а не директивой VOLUME: новый том наследует
+# владельца из образа, а VOLUME оставлял его за root — и парсер под UID 10001
+# падал на записи /data/state.json.
+RUN install -d -o 10001 -g 10001 -m 0755 /data
 USER 10001:10001
 VOLUME ["/data"]
 EXPOSE 8000
