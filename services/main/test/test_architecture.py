@@ -65,8 +65,7 @@ def test_internal_imports_point_at_modules_that_exist() -> None:
         for dependency in imports(path):
             if not dependency.startswith("lib."):
                 continue
-            # `from lib.pkg import name` — импортируется либо модуль, либо имя
-            # внутри пакета; второе здесь недоказуемо, поэтому достаточно того,
-            # что существует сам путь или его родитель.
-            parent = dependency.rsplit(".", 1)[0]
-            assert dependency in known or parent in known, (path, dependency)
+            # Именно сам путь, а не его родитель: в `from lib.pkg.mod import Name`
+            # отсутствующий `lib.pkg.mod` роняет импорт, даже когда `lib.pkg`
+            # на месте. Послабление пропускало ровно такую опечатку.
+            assert dependency in known, (path, dependency)

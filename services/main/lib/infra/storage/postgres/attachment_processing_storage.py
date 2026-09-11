@@ -8,7 +8,9 @@ from lib.dto.attachment_claim import AttachmentClaim
 from lib.infra.clients.http import SafeFetcher
 from lib.infra.storage.postgres.models import Attachment, Job, News, ProcessingAttempt
 from lib.infra.storage.s3 import S3ObjectStore, extract_text_isolated
-from lib.interactor.interfaces.storage.attachmentprocessing import AttachmentProcessingStorage
+from lib.interactor.interfaces.storage.attachment_processing import (
+    AttachmentProcessingStorage,
+)
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
