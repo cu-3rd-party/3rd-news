@@ -182,10 +182,16 @@ services:
       SERVICE_MODE: api
       ENVIRONMENT: ${ENVIRONMENT:-development}
     healthcheck:
+      # Проба запускает отдельный процесс Python с импортом настроек; сам
+      # запрос к /health/ready мгновенный, а старт интерпретатора на слабой
+      # машине стоит секунды. При timeout 5s и interval 5s здоровый API
+      # помечался unhealthy и блокировал зависимые сервисы.
       test: [CMD, thirdnews-healthcheck]
-      interval: 5s
-      timeout: 5s
-      retries: 30
+      start_period: 60s
+      start_interval: 5s
+      interval: 30s
+      timeout: 30s
+      retries: 5
 
   worker-outbox:
     <<: *core
@@ -296,9 +302,11 @@ services:
       api: {condition: service_healthy}
     healthcheck:
       test: [CMD, parser-rss-healthcheck]
-      interval: 10s
-      timeout: 5s
-      retries: 10
+      start_period: 60s
+      start_interval: 5s
+      interval: 30s
+      timeout: 30s
+      retries: 5
 
   parser-time:
     mem_limit: 512m
@@ -333,9 +341,11 @@ services:
       api: {condition: service_healthy}
     healthcheck:
       test: [CMD, parser-time-healthcheck]
-      interval: 10s
-      timeout: 5s
-      retries: 10
+      start_period: 60s
+      start_interval: 5s
+      interval: 30s
+      timeout: 30s
+      retries: 5
 
   web:
     mem_limit: 128m
