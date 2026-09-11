@@ -42,6 +42,7 @@ services:
     environment:
       SERVICE_MODE: initialize
       ENVIRONMENT: ${ENVIRONMENT:-development}
+      RAW_AUDIT_ENCRYPTION_KEY: ${RAW_AUDIT_ENCRYPTION_KEY:-}
       DB_SCHEME: ${DB_SCHEME:-postgresql+asyncpg}
       DB_HOST: ${DB_HOST:-db}
       DB_PORT: ${DB_PORT:-5432}

@@ -4,7 +4,7 @@ import asyncio
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from lib.dto.attachmentclaim import AttachmentClaim
+from lib.dto.attachment_claim import AttachmentClaim
 from lib.infra.clients.http import SafeFetcher
 from lib.infra.storage.postgres.models import Attachment, Job, News, ProcessingAttempt
 from lib.infra.storage.s3 import S3ObjectStore, extract_text_isolated

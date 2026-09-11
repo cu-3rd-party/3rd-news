@@ -43,3 +43,30 @@ def test_handlers_do_not_depend_on_sqlalchemy_or_orm_models() -> None:
 def test_shared_contracts_do_not_import_core_service() -> None:
     for path in (ROOT / "packages/python/contracts/thirdnews_contracts").rglob("*.py"):
         assert not any(name == "lib" or name.startswith("lib.") for name in imports(path))
+
+
+def test_internal_imports_point_at_modules_that_exist() -> None:
+    """Каждый `from lib...` должен указывать на существующий модуль.
+
+    Опечатка в таком импорте не видна ни линтеру типов, ни тестам отдельных
+    сценариев: модуль просто не грузится в рантайме. Один пропущенный
+    символ (`lib.dto.attachmentclaim` вместо `lib.dto.attachment_claim`)
+    уронил весь слой воркеров уже после мержа в main.
+    """
+
+    modules = {
+        ".".join(path.relative_to(SERVICE).with_suffix("").parts)
+        for path in (SERVICE / "lib").rglob("*.py")
+    }
+    packages = {name.removesuffix(".__init__") for name in modules if name.endswith("__init__")}
+    known = modules | packages
+
+    for path in (SERVICE / "lib").rglob("*.py"):
+        for dependency in imports(path):
+            if not dependency.startswith("lib."):
+                continue
+            # `from lib.pkg import name` — импортируется либо модуль, либо имя
+            # внутри пакета; второе здесь недоказуемо, поэтому достаточно того,
+            # что существует сам путь или его родитель.
+            parent = dependency.rsplit(".", 1)[0]
+            assert dependency in known or parent in known, (path, dependency)
