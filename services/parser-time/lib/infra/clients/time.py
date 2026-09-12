@@ -24,6 +24,8 @@ class TimeClient(TimeGateway):
         if not cookie and not token:
             raise TimeAuthError("нужен либо TIME_COOKIE, либо TIME_TOKEN")
         self.base_url = base_url.rstrip("/")
+        # Отдельно от base_url: тот нужен для пермалинков без префикса API.
+        self.api_root = f"{self.base_url}/api/v4"
         self.timeout = timeout
         self.headers = {
             "Accept": "application/json, text/plain, */*",
@@ -39,8 +41,10 @@ class TimeClient(TimeGateway):
         self._session: aiohttp.ClientSession | None = None
 
     async def __aenter__(self) -> Self:
+        # base_url у aiohttp не подходит: он требует замыкающего слеша, а с
+        # ним пути вида "/users/me" уронят префикс /api/v4 при склейке.
+        # Префикс подставляется явно в запросах.
         self._session = aiohttp.ClientSession(
-            base_url=f"{self.base_url}/api/v4",
             headers=self.headers,
             timeout=aiohttp.ClientTimeout(total=self.timeout),
         )
@@ -57,7 +61,7 @@ class TimeClient(TimeGateway):
         return self._session
 
     async def get_json(self, path: str, **params: Any) -> Any:
-        async with self.http().get(path, params=params or None) as response:
+        async with self.http().get(f"{self.api_root}{path}", params=params or None) as response:
             text = await response.text()
             if response.status in {401, 403}:
                 raise TimeAuthError(f"TiMe отвечает {response.status}; обнови доступ")
@@ -115,7 +119,7 @@ class TimeClient(TimeGateway):
         return collected
 
     async def download_file(self, file_id: str, max_bytes: int) -> bytes | None:
-        async with self.http().get(f"/files/{file_id}") as response:
+        async with self.http().get(f"{self.api_root}/files/{file_id}") as response:
             if response.status >= 400:
                 logger.warning("не смог скачать файл %s: %s", file_id, response.status)
                 return None
