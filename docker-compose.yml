@@ -328,6 +328,11 @@ services:
       TIME_CSRF: ${TIME_CSRF:-}
       TIME_TOKEN: ${TIME_TOKEN:-}
       TIME_CHANNELS: ${TIME_CHANNELS:-}
+      TIME_AUTHORS: ${TIME_AUTHORS:-privileged}
+      TIME_INCLUDE_REPLIES: ${TIME_INCLUDE_REPLIES:-false}
+      TIME_MAX_PAGES: ${TIME_MAX_PAGES:-5}
+      POLL_INTERVAL_S: ${TIME_POLL_INTERVAL_S:-600}
+      MAX_AGE_DAYS: ${TIME_MAX_AGE_DAYS:-30}
       PARSER_API_TOKEN: ${PARSER_API_TOKEN:-}
     volumes: [parser-time-data:/data]
     networks: [internal, egress]

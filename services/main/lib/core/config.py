@@ -241,6 +241,14 @@ class Settings(BaseSettings):
 
     @property
     def file_public_endpoint(self) -> str:
+        # Стандартный порт в адрес не пишем. Подпись presigned URL
+        # считается по host без порта по умолчанию, но urllib из стандартной
+        # библиотеки берёт Host из URL целиком и отправляет "хост:443" — хранилище
+        # отвечает 403 Invalid signature. Сторонний парсер на urllib ломался бы без
+        # всякого шанса понять причину.
+        default_port = 443 if self.file_public_scheme == "https" else 80
+        if self.file_public_port == default_port:
+            return f"{self.file_public_scheme}://{self.file_public_host}"
         return f"{self.file_public_scheme}://{self.file_public_host}:{self.file_public_port}"
 
     @property

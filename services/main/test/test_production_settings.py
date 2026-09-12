@@ -50,7 +50,18 @@ def test_production_accepts_public_origin_and_generated_key():
         file_public_port=443,
         raw_audit_encryption_key=KEY,
     )
-    assert settings.file_public_endpoint == "https://uploads.example.edu:443"
+    assert settings.file_public_endpoint == "https://uploads.example.edu"
+
+
+def test_upload_endpoint_keeps_a_non_default_port():
+    settings = Settings(
+        environment="production",
+        file_public_scheme="https",
+        file_public_host="uploads.example.edu",
+        file_public_port=8443,
+        raw_audit_encryption_key=KEY,
+    )
+    assert settings.file_public_endpoint == "https://uploads.example.edu:8443"
 
 
 @pytest.mark.parametrize("environment", ["Production", "prod", "staging", "test"])
