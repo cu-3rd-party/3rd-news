@@ -44,3 +44,11 @@ class SelectionStorage(ABC):
     @abstractmethod
     def seed(self, selections: list[Selection]) -> None:
         raise NotImplementedError
+
+    @abstractmethod
+    def seen_posts(self, team: str, channel: str) -> set[str]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def mark_seen(self, team: str, channel: str, post_id: str) -> None:
+        raise NotImplementedError

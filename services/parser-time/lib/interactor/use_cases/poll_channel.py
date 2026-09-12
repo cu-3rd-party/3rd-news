@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -53,6 +54,8 @@ async def poll_channel(
     max_age_days: int | None = None,
     max_pages: int | None = None,
     authors: str | None = None,
+    seen: set[str] | None = None,
+    remember: Callable[[str], None] | None = None,
 ) -> tuple[int, int, int]:
     channel = await time_client.resolve_channel(ref)
     channel_title = channel.get("display_name") or ref.channel
@@ -79,6 +82,14 @@ async def poll_channel(
         return privileged[user_id]
 
     for post in posts:
+        post_id = str(post.get("id") or "")
+        # Обработанный пост пропускаем до всякой работы: сервис отдал бы на
+        # него duplicate, но вложения к этому моменту уже были бы скачаны и
+        # загружены заново, а невостребованные загрузки навсегда занимают
+        # квоту ключа.
+        if seen is not None and post_id and post_id in seen:
+            skipped += 1
+            continue
         published = created_at(post)
         if published and published < cutoff:
             skipped += 1
@@ -112,6 +123,8 @@ async def poll_channel(
         except IngestError as exc:
             logger.warning("не смог отправить пост %s: HTTP %d", post.get("id"), exc.status_code)
             continue
+        if remember is not None and post_id:
+            remember(post_id)
         if result.status.value == "accepted":
             created += 1
         else:

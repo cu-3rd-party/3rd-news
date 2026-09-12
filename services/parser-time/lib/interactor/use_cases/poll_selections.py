@@ -1,3 +1,4 @@
+import functools
 import logging
 from typing import Any
 
@@ -66,6 +67,10 @@ class PollSelections:
                     max_age_days=max_age_days,
                     max_pages=max_pages,
                     authors=selection.authors,
+                    seen=self._storage.seen_posts(selection.team, selection.channel),
+                    remember=functools.partial(
+                        self._storage.mark_seen, selection.team, selection.channel
+                    ),
                 )
                 result = RunResult(created=created, duplicates=duplicates, skipped=skipped)
             except TimeAuthError as exc:

@@ -10,6 +10,10 @@ from ...interactor.interfaces.storage.selection import SelectionStorage
 
 logger = logging.getLogger("thirdnews.parser.time")
 
+# Сколько обработанных постов помним на канал: хватает с запасом на глубину
+# обхода (max_pages × posts_per_page), чтобы файл состояния не рос бесконечно.
+SEEN_LIMIT = 5000
+
 
 class JsonSelectionStorage(SelectionStorage):
     def __init__(self, path: Path) -> None:
@@ -17,6 +21,7 @@ class JsonSelectionStorage(SelectionStorage):
         self._lock = threading.RLock()
         self._selected: dict[str, Selection] = {}
         self._runs: dict[str, RunResult] = {}
+        self._seen: dict[str, list[str]] = {}
         self._load()
 
     def selected(self) -> list[Selection]:
@@ -43,6 +48,7 @@ class JsonSelectionStorage(SelectionStorage):
         with self._lock:
             removed = self._selected.pop(f"{team}/{channel}", None)
             self._runs.pop(f"{team}/{channel}", None)
+            self._seen.pop(f"{team}/{channel}", None)
             if removed is not None:
                 self._save()
             return removed is not None
@@ -51,6 +57,7 @@ class JsonSelectionStorage(SelectionStorage):
         with self._lock:
             self._selected = {selection.key: selection for selection in selections}
             self._runs = {key: value for key, value in self._runs.items() if key in self._selected}
+            self._seen = {key: value for key, value in self._seen.items() if key in self._selected}
             self._save()
 
     def record_run(self, team: str, channel: str, result: RunResult) -> None:
@@ -73,6 +80,21 @@ class JsonSelectionStorage(SelectionStorage):
             if selection is None or selection.display_name == display_name:
                 return
             selection.display_name = display_name
+            self._save()
+
+    def seen_posts(self, team: str, channel: str) -> set[str]:
+        with self._lock:
+            return set(self._seen.get(f"{team}/{channel}", ()))
+
+    def mark_seen(self, team: str, channel: str, post_id: str) -> None:
+        with self._lock:
+            key = f"{team}/{channel}"
+            known = self._seen.setdefault(key, [])
+            if post_id in known:
+                return
+            known.append(post_id)
+            if len(known) > SEEN_LIMIT:
+                del known[: len(known) - SEEN_LIMIT]
             self._save()
 
     def seed(self, selections: list[Selection]) -> None:
@@ -100,11 +122,15 @@ class JsonSelectionStorage(SelectionStorage):
                 self._runs[key] = RunResult(**item)
             except TypeError:
                 continue
+        for key, item in (raw.get("seen") or {}).items():
+            if isinstance(item, list):
+                self._seen[key] = [str(post_id) for post_id in item]
 
     def _save(self) -> None:
         payload = {
             "selected": [asdict(selection) for selection in self._selected.values()],
             "runs": {key: asdict(value) for key, value in self._runs.items()},
+            "seen": dict(self._seen),
         }
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temporary = self.path.with_suffix(".tmp")
