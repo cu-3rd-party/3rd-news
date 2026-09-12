@@ -71,6 +71,45 @@ docker compose down
 запустить Compose с обоими файлами. Production overlay открывает только proxy
 на 80/443; PostgreSQL, NATS, Meilisearch и Garage admin наружу не публикуются.
 
+### За уже существующим реверс-прокси
+
+Если на машине уже стоит прокси под другие домены, второй Caddy за первым
+разносит маршрутизацию по двум местам. Тогда `infra/compose.production.yml`
+не нужен, а `docker-compose.override.yml` рядом с проектом выключает лишнее
+и публикует сервисы на loopback:
+
+```yaml
+services:
+  proxy:
+    profiles: [unused]
+  api:
+    ports: ["127.0.0.1:8110:8000"]
+  web:
+    networks: [internal, frontdoor]
+    ports: ["127.0.0.1:8112:80"]
+  file:
+    networks: [internal, frontdoor]
+    ports: ["127.0.0.1:8111:3900"]
+networks:
+  frontdoor: {}
+```
+
+`profiles: [unused]` обязателен: `docker compose up` без имён сервисов
+поднимает весь файл. Отдельная сеть нужна потому, что `web` и `file` стоят
+только в `internal: true`, откуда публикация портов не работает.
+
+Внешний прокси повторяет `infra/caddy/Caddyfile`: `/api/*`, `/media/*` и
+`/health/*` — в api, `PUT` в бакет — в Garage, остальное — в SPA. Префикс
+пути у загрузок не срезать и `Host` не подменять: они входят в подпись S3.
+Отдельное DNS-имя под загрузки при этом не требуется — достаточно указать
+`FILE_PUBLIC_HOST` тем же доменом, потому что маршрут разводится по методу
+и префиксу бакета.
+
+Локальная модель отключается тем же способом: `ollama` и `model-init` в
+`profiles: [unused]`, `classifier-ai` с `depends_on: !reset {}`, а
+`PROVIDER_PROTOCOL=openai` с `OPENAI_*` направляет классификацию во внешний
+совместимый API.
+
 ## Контракты
 
 - `POST /api/v1/news` и `/news/batch` → `202`, идентификатор submission.

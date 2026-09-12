@@ -3,6 +3,11 @@
 `CONTRACT_VERSION=2.0`. Парсер зависит только от `thirdnews_contracts` или от
 JSON Schema в `contracts/http/`.
 
+Источник должен быть заведён заранее: `POST /api/v1/admin/sources` со `slug`,
+совпадающим с полем `source` в submission. Незнакомый или выключенный источник
+даёт `409 source is not registered or disabled` — приём сам источники не
+создаёт.
+
 `POST /api/v1/news` принимает `NewsSubmission` и при фиксации оригинала и
 outbox отвечает `202 IngestResult`. Идентичность задаётся парой `source` +
 `external_id` либо `idempotency_key`. Повтор идентичного payload возвращает
