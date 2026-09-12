@@ -107,13 +107,22 @@ class TimeClient(TimeGateway):
         self, channel_id: str, per_page: int = 60, max_pages: int = 5
     ) -> list[dict[str, Any]]:
         collected: list[dict[str, Any]] = []
+        # Страницы TiMe перекрываются: один и тот же пост приходит дважды, и
+        # без отсева парсер повторно скачивает вложения, загружает их заново и
+        # получает конфликт на отправке — загрузки при этом остаются висеть в
+        # квоте владельца ключа.
+        seen: set[str] = set()
         for page in range(max_pages):
             payload = await self.get_json(
                 f"/channels/{channel_id}/posts", page=page, per_page=per_page
             )
             order = payload.get("order") or []
             posts = payload.get("posts") or {}
-            collected.extend(posts[post_id] for post_id in order if post_id in posts)
+            for post_id in order:
+                if post_id in seen or post_id not in posts:
+                    continue
+                seen.add(post_id)
+                collected.append(posts[post_id])
             if len(order) < per_page:
                 break
         return collected
