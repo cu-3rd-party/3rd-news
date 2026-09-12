@@ -11,7 +11,9 @@
 :80 {
     root * /srv
     encode zstd gzip
-    try_files {path} /index.html
+    # {path}.html — чтобы отдельные страницы рядом с SPA открывались без
+    # расширения (/preview), а не уходили в катч-ол админки.
+    try_files {path} {path}.html /index.html
     file_server
     header {
         X-Content-Type-Options nosniff
