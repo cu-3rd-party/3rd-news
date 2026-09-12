@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import uuid
 from collections.abc import Awaitable, Callable
 
@@ -9,10 +10,13 @@ from lib.dto.incoming_message import IncomingMessage
 from lib.interactor.interfaces.clients.consumer import ConsumerClient
 
 from nats.aio.msg import Msg
+from nats.errors import TimeoutError as NatsTimeoutError
 from nats.js.api import AckPolicy, ConsumerConfig, DeliverPolicy, StorageType, StreamConfig
 from nats.js.errors import FetchTimeoutError, NotFoundError
 
 from .jetstream import JetStreamBroker
+
+logger = logging.getLogger("thirdnews.consumer")
 
 
 class DurableConsumer(ConsumerClient):
@@ -85,7 +89,18 @@ class DurableConsumer(ConsumerClient):
                     except Exception as error:
                         await self.record_failure(raw, error)
                     else:
-                        await raw.ack_sync()
+                        # ack_sync ждёт ответа сервера одну секунду. На
+                        # загруженной машине этого не хватает, а исключение
+                        # отсюда роняло весь воркер. Неподтверждённое
+                        # сообщение придёт повторно, и inbox не даст применить
+                        # его дважды, так что продолжать безопаснее.
+                        try:
+                            await raw.ack_sync()
+                        except NatsTimeoutError, asyncio.TimeoutError:
+                            logger.warning(
+                                "не дождался подтверждения ack для %s, жду повторной доставки",
+                                self._durable,
+                            )
         finally:
             await subscription.unsubscribe()
 
